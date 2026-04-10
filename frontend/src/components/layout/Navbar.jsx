@@ -58,6 +58,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-1 flex-1">
           {navLink("/", "Home")}
           {navLink("/menu", "Menu")}
+          {navLink("/restaurants",  "Restaurants")}
           {user && navLink("/orders", "My Orders")}
           {isAdmin &&
             navLink("/admin", "Dashboard", <LayoutDashboard size={14} />)}

@@ -1,168 +1,263 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowRight, Clock, Star, Truck, ShieldCheck } from 'lucide-react'
-import { api,ROUTES } from '../../services/api'
-import ProductCard from '../../components/ui/ProductCard'
+import { Link, useNavigate } from 'react-router-dom'
+import { Search, ArrowRight, Star, Clock, Truck, ShieldCheck, Zap } from 'lucide-react'
+import { api, ROUTES } from '../../services/api'
+
+const FOOD_CATEGORIES = [
+  { name: 'C-momo',   emoji: '🌶️', img: 'https://images.unsplash.com/photo-1534482421-64566f976cfa?w=200&h=200&fit=crop' },
+  { name: 'Pizza',    emoji: '🍕', img: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&h=200&fit=crop' },
+  { name: 'Burger',   emoji: '🍔', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&h=200&fit=crop' },
+  { name: 'Kimbap',   emoji: '🍱', img: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=200&h=200&fit=crop' },
+  { name: 'Corn Dog', emoji: '🌭', img: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=200&h=200&fit=crop' },
+  { name: 'Ramen',    emoji: '🍜', img: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&h=200&fit=crop' },
+]
+
+const TRENDING_ITEMS = [
+  { name: 'Buff Momo',      cat: 'Steamed Momo', price: 180, img: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=300&h=200&fit=crop' },
+  { name: 'Jhol Momo',      cat: 'Jhol Momo',    price: 250, img: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300&h=200&fit=crop' },
+  { name: 'Chicken Sekuwa', cat: 'Snacks',        price: 280, img: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&h=200&fit=crop' },
+]
 
 export default function Home() {
-  const [featured, setFeatured] = useState([])
+  const [products, setProducts] = useState([])
+  const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchQ, setSearchQ] = useState('')
+  const navigate = useNavigate()
 
   useEffect(() => {
-    api.get(ROUTES.products).then(({ ok, data }) => {
-      if (ok) setFeatured((data.data || []).slice(0, 4))
+    Promise.all([
+      api.get(ROUTES.products),
+      api.get(ROUTES.restaurants),
+    ]).then(([p, r]) => {
+      if (p.ok) setProducts(p.data.data || [])
+      if (r.ok) setRestaurants(r.data.data || [])
     }).finally(() => setLoading(false))
   }, [])
 
+  const handleSearch = (e) => {
+    e.preventDefault()
+    if (searchQ.trim()) navigate(`/menu?q=${encodeURIComponent(searchQ.trim())}`)
+  }
+
+  const featured = (products.length > 0 ? products : TRENDING_ITEMS).filter(p => p.productStatus === 'available' || !p.productStatus).slice(0, 6)
+
   return (
     <div>
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-dark min-h-[88vh] flex items-center">
-        {/* Background orbs */}
-        <div className="absolute top-[-10%] right-[-5%] w-[550px] h-[550px] rounded-full bg-orange/8 blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full bg-amber/6 blur-[120px] pointer-events-none" />
 
-        <div className="max-w-6xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-12 items-center w-full">
-          {/* Left content */}
+      {/* ── HERO ── stripe bg matching screenshot */}
+      <section className="relative stripe-bg overflow-hidden pt-10 pb-16">
+        {/* Decorative circles */}
+        <div className="absolute top-10 right-10 w-72 h-72 rounded-full bg-pink/8 pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full bg-pink/6 pointer-events-none" />
+
+        <div className="wrap grid md:grid-cols-2 gap-10 items-center">
+          {/* Left */}
           <div className="animate-fade-up">
-            <div className="badge-orange mb-6 inline-flex">
-              <span className="w-2 h-2 rounded-full bg-orange animate-pulse" />
-              Now delivering in 30 mins
-            </div>
-            <h1 className="font-serif font-extrabold text-5xl md:text-6xl text-chalk leading-[1.05] tracking-tight mb-6">
-              Freshly Steamed<br />
-              <span className="text-orange">MoMos</span> Delivered<br />
-              to You
-            </h1>
-            <p className="text-muted text-lg leading-relaxed mb-10 max-w-md">
-              Fastest, Easiest and The Most Convenient way to enjoy the best food of your favourite restaurants at home, at the office or wherever you want to.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/menu" className="btn-primary text-base px-7 py-3.5 gap-2">
-                Order Now <ArrowRight size={18} />
-              </Link>
-              <Link to="/menu" className="btn-secondary text-base px-7 py-3.5">
-                View Menu
-              </Link>
+            {/* Small label */}
+            <div className="inline-flex items-center gap-2 bg-pink/10 text-pink px-3 py-1.5 rounded-full text-xs font-display font-bold mb-5">
+              <span className="w-1.5 h-1.5 rounded-full bg-pink animate-pulse" />
+              Online ordering
             </div>
 
-          
-            {/* <div className="flex gap-8 mt-12 pt-8 border-t border-dark-3">
+            <h1 className="font-display font-black text-4xl md:text-5xl text-ink leading-tight mb-4">
+              Best Food<br />
+              <span className="text-pink">Delivery</span> Apps
+            </h1>
+
+            <p className="text-slate text-base leading-relaxed mb-8 max-w-md">
+              My app is the fastest, easiest and most convenient way to enjoy the best food of your favourite restaurants at home, at the office or wherever you want to.
+            </p>
+
+            {/* Search bar */}
+            <form onSubmit={handleSearch} className="flex gap-2 max-w-md mb-6">
+              <div className="relative flex-1">
+                <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                <input
+                  className="input-field pl-11 py-3.5 rounded-full"
+                  placeholder="Order food from the widest range of restaurants..."
+                  value={searchQ}
+                  onChange={e => setSearchQ(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="btn-pink px-6 py-3.5 rounded-full shrink-0 shadow-pink">
+                Find Restaurants
+              </button>
+            </form>
+
+            {/* Trust pills */}
+            <div className="flex flex-wrap gap-3">
               {[
-                { value: '500+', label: 'Orders Today' },
-                { value: '4.9★', label: 'Rating' },
-                { value: '30min', label: 'Delivery' },
+                { icon: <Zap size={14}/>, t: '30 min delivery' },
+                { icon: <Star size={14}/>, t: '4.9★ rated' },
+                { icon: <Truck size={14}/>, t: 'Free delivery NPR 500+' },
               ].map(s => (
-                <div key={s.label}>
-                  <div className="font-display font-extrabold text-2xl text-chalk">{s.value}</div>
-                  <div className="text-muted text-sm">{s.label}</div>
+                <div key={s.t} className="flex items-center gap-1.5 bg-white border border-faint rounded-full px-3 py-1.5 text-xs font-display font-semibold text-slate shadow-card">
+                  <span className="text-pink">{s.icon}</span>{s.t}
                 </div>
               ))}
-            </div> */}
+            </div>
           </div>
 
-       
-          <div className="hidden md:flex items-center justify-center relative">
-            <div className="w-80 h-80 rounded-full bg-gradient-to-br from-orange/20 to-amber/10 border border-orange/20 flex items-center justify-center animate-pulse-slow">
-              <div className="w-64 h-64 rounded-full bg-gradient-to-br from-orange/30 to-amber/15 border border-orange/30 flex items-center justify-center">
-                <span className="text-[100px] animate-float">🍜</span>
+          {/* Right – hero illustration */}
+          <div className="hidden md:flex items-center justify-center relative min-h-[340px]">
+            {/* Big food illustration */}
+            <div className="relative w-72 h-72">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-pink/20 to-pink-100 animate-pulse-soft" />
+              <div className="absolute inset-4 rounded-full bg-gradient-to-br from-white to-pink-50 shadow-float flex items-center justify-center">
+                <span className="text-[110px] animate-float filter drop-shadow-xl">🍜</span>
               </div>
             </div>
-          
-            <div className="absolute top-8 right-4 bg-dark-2 border border-mid rounded-xl px-4 py-3 shadow-card animate-fade-up" style={{animationDelay:'0.3s'}}>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400"><Truck size={15}/></div>
-                <div>
-                  <div className="font-display font-bold text-chalk text-sm">Free Delivery</div>
-                  <div className="text-muted text-xs">on orders over NPR 500</div>
-                </div>
-              </div>
+            {/* Floating cards */}
+            <div className="absolute top-4 -right-4 card px-4 py-3 flex items-center gap-3 shadow-float animate-fade-up" style={{animationDelay:'0.3s'}}>
+              <span className="text-2xl">⭐</span>
+              <div><p className="font-display font-bold text-ink text-sm">4.9 Rating</p><p className="text-muted text-xs">2k+ reviews</p></div>
             </div>
-            <div className="absolute bottom-12 left-2 bg-dark-2 border border-mid rounded-xl px-4 py-3 shadow-card animate-fade-up" style={{animationDelay:'0.5s'}}>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-amber/20 flex items-center justify-center text-amber"><Star size={15}/></div>
-                <div>
-                  <div className="font-display font-bold text-chalk text-sm">Top Rated</div>
-                  <div className="text-muted text-xs">4.9 stars · 2k+ reviews</div>
-                </div>
-              </div>
+            <div className="absolute bottom-10 -left-6 card px-4 py-3 flex items-center gap-3 shadow-float animate-fade-up" style={{animationDelay:'0.5s'}}>
+              <span className="text-2xl">⚡</span>
+              <div><p className="font-display font-bold text-ink text-sm">25 mins</p><p className="text-muted text-xs">Avg. delivery</p></div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features strip */}
-      <section className="border-y border-dark-3 bg-dark-2">
-        <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6">
-          {[
-            { icon: <Truck size={22} className="text-orange" />, title: 'Fast Delivery', desc: 'Under 30 minutes' },
-            { icon: <Star size={22} className="text-amber" />, title: 'Top Quality', desc: 'Fresh ingredients' },
-            { icon: <Clock size={22} className="text-green-400" />, title: 'Open Daily', desc: '7am – 12pm' },
-            { icon: <ShieldCheck size={22} className="text-blue-400" />, title: 'Safe & Hygienic', desc: 'Certified kitchen' },
-          ].map(f => (
-            <div key={f.title} className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-dark-3 border border-mid flex items-center justify-center shrink-0">
-                {f.icon}
-              </div>
-              <div>
-                <div className="font-display font-bold text-chalk text-sm">{f.title}</div>
-                <div className="text-muted text-xs">{f.desc}</div>
-              </div>
+      {/* ── TRENDING FOOD ITEMS (matching screenshot grid) ── */}
+      <section className="section bg-white">
+        <div className="wrap">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="section-title">Trending Food Items</h2>
+              <p className="section-sub">Most ordered this week</p>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Featured products */}
-      <section className="page-container">
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <div className="p-10 badge-orange text-5xl font-serif  font-bold mb-3">Popular Items</div>
-            <h2 className="section-title font-serif p-10 font-normal text-3xl ">Today's Picks</h2>
+            <Link to="/menu" className="btn-soft gap-1 text-sm">See all <ArrowRight size={14}/></Link>
           </div>
-          <Link to="/menu" className="btn-ghost gap-1 font-serif font-normal text-sm text-black ">
-            View all <ArrowRight size={15} />
-          </Link>
-        </div>
 
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="rounded-xl overflow-hidden">
-                <div className="skeleton aspect-[4/3] w-full" />
-                <div className="bg-dark-2 p-4 space-y-2">
-                  <div className="skeleton h-5 w-3/4 rounded" />
-                  <div className="skeleton h-3 w-full rounded" />
-                  <div className="skeleton h-3 w-2/3 rounded" />
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+            {FOOD_CATEGORIES.map(cat => (
+              <Link key={cat.name} to={`/menu?q=${cat.name}`}
+                className="flex flex-col items-center group cursor-pointer">
+                <div className="w-full aspect-square rounded-3xl overflow-hidden bg-pink-50 border-2 border-transparent group-hover:border-pink transition-all duration-200 shadow-card group-hover:shadow-pink mb-2.5">
+                  <img src={cat.img} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-400" />
                 </div>
-              </div>
+                <span className="font-display font-bold text-ink text-sm group-hover:text-pink transition-colors text-center">{cat.name}</span>
+              </Link>
             ))}
           </div>
-        ) : featured.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-            {featured.map(p => <ProductCard key={p._id} product={p} />)}
-          </div>
-        ) : (
-          <div className="text-center py-16 text-muted">
-            <div className="text-5xl mb-4">🍜</div>
-            <p>No products available yet.</p>
-          </div>
-        )}
+        </div>
       </section>
 
-      {/* CTA banner */}
-      <section className="max-w-6xl mx-auto px-6 mb-16">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange to-orange-light p-10 md:p-14 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="absolute right-0 top-0 bottom-0 text-[160px] leading-none opacity-10 pointer-events-none select-none">🍜</div>
-          <div>
-            <h2 className="font-serif  font-extrabold text-5xl   text-black mb-3">
-              Hungry? Order Now!
-            </h2>
-            <p className="text-black font-thin text-lg">Get your favourite momos in under 30 minutes.</p>
+      {/* ── ABOUT US (matching screenshot) ── */}
+      <section className="stripe-bg py-16">
+        <div className="wrap">
+          <div className="max-w-2xl mx-auto text-center">
+            <h2 className="font-display font-black text-3xl text-ink mb-5">About Us</h2>
+            <p className="text-slate leading-relaxed">
+              My app is the fastest, easiest and most convenient way to enjoy the best food of your favourite restaurants at home, at the office or wherever you want to. We know that your time is valuable and sometimes every minute in the day counts. That's why we deliver!<br/><br/>
+              So you can spend more time doing the things you love.
+            </p>
           </div>
-          <Link to="/menu" className="bg-white text-orange font-serif font-normal text-base px-8 py-4 rounded-xl hover:shadow-orange hover:scale-105 transition-all duration-200 shrink-0 flex items-center gap-2">
-            Explore Menu <ArrowRight size={18} />
-          </Link>
+
+          {/* Big restaurant search CTA */}
+          <div className="mt-12 relative rounded-4xl overflow-hidden">
+            <div className="relative h-52 bg-gradient-to-r from-ink to-ink/80 flex flex-col items-center justify-center text-white text-center px-6 gap-4"
+              style={{backgroundImage:'url(https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=1200&h=400&fit=crop)', backgroundSize:'cover', backgroundPosition:'center'}}>
+              <div className="absolute inset-0 bg-ink/60" />
+              <div className="relative">
+                <p className="font-display font-bold text-lg mb-4">Order food from the widest range of restaurants.</p>
+                <form onSubmit={handleSearch} className="flex gap-2 max-w-md mx-auto">
+                  <input className="flex-1 bg-white/20 backdrop-blur border border-white/30 rounded-full px-5 py-3 text-white placeholder:text-white/60 focus:outline-none focus:border-white text-sm"
+                    placeholder="Search restaurants..." value={searchQ} onChange={e => setSearchQ(e.target.value)} />
+                  <button type="submit" className="btn-pink shrink-0 rounded-full px-5">Find Restaurants</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FEATURED PRODUCTS from DB ── */}
+      {featured.length > 0 && (
+        <section className="section bg-white">
+          <div className="wrap">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="section-title">🔥 Most Loved Items</h2>
+                <p className="section-sub">Fresh from our partner restaurants</p>
+              </div>
+              <Link to="/menu" className="btn-soft gap-1 text-sm">Full menu <ArrowRight size={14}/></Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+              {featured.slice(0,8).map((p, i) => (
+                <Link key={p._id || i} to={p._id ? `/product/${p._id}` : '/menu'}
+                  className="card-hover group overflow-hidden">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-pink-50">
+                    {(p.productImage || p.img) ? (
+                      <img src={p.productImage || p.img} alt={p.productName || p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    ) : <div className="w-full h-full flex items-center justify-center text-5xl">🍜</div>}
+                    <div className="absolute top-2 left-2 badge-pink text-[10px]">{p.productCategory || p.cat}</div>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-display font-bold text-ink text-sm leading-tight">{p.productName || p.name}</h3>
+                    <p className="font-display font-extrabold text-pink mt-2">NPR {(p.productPrice || p.price)?.toLocaleString()}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── RESTAURANTS ── */}
+      {restaurants.length > 0 && (
+        <section className="section stripe-bg">
+          <div className="wrap">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="section-title">🏪 Top Restaurants</h2>
+                <p className="section-sub">Delivering to you right now</p>
+              </div>
+              <Link to="/restaurants" className="btn-pink text-sm gap-1">View all <ArrowRight size={14}/></Link>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {restaurants.filter(r => r.isOpen).slice(0,4).map(r => (
+                <Link key={r._id} to={`/restaurants/${r._id}`} className="card-hover group overflow-hidden">
+                  <div className="h-32 bg-gradient-to-br from-pink-50 to-rose-light flex items-center justify-center text-6xl group-hover:scale-105 transition-transform duration-300 overflow-hidden">
+                    {r.coverImage ? <img src={r.coverImage} alt={r.name} className="w-full h-full object-cover" /> : r.emoji || '🍜'}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-display font-bold text-ink text-base">{r.name}</h3>
+                    <p className="text-slate text-xs mt-0.5 line-clamp-1">{r.description}</p>
+                    <div className="flex items-center justify-between mt-3 text-xs">
+                      <span className="flex items-center gap-1 text-yellow-500 font-display font-bold"><Star size={11} fill="currentColor"/> {r.rating?.toFixed(1)}</span>
+                      <span className="flex items-center gap-1 text-slate"><Clock size={11}/> {r.deliveryTime} min</span>
+                      <span className={r.deliveryFee === 0 ? 'text-green-600 font-bold' : 'text-slate'}>
+                        {r.deliveryFee === 0 ? '🚚 Free' : `NPR ${r.deliveryFee}`}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── WEEKLY PROMO (matches screenshot) ── */}
+      <section className="section bg-white">
+        <div className="wrap">
+          <div className="relative overflow-hidden rounded-4xl bg-ink text-white p-10 md:p-14 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="absolute inset-0 opacity-10" style={{backgroundImage:'url(https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1200&h=400&fit=crop)', backgroundSize:'cover'}}/>
+            <div className="relative z-10">
+              <p className="font-display font-black text-4xl md:text-5xl text-white mb-1">Weekly Promo</p>
+              <div className="flex items-baseline gap-2 mb-3">
+                <span className="font-display font-black text-6xl text-pink">20%</span>
+                <span className="font-display font-black text-4xl text-pink">OFF</span>
+              </div>
+              <p className="text-white/70 mb-6">Get it delivered fresh from the farm</p>
+              <Link to="/menu" className="btn-pink gap-2 inline-flex">ORDER NOW <ArrowRight size={15}/></Link>
+            </div>
+            <div className="relative z-10 hidden md:block text-[100px] animate-float">🥗</div>
+          </div>
         </div>
       </section>
     </div>

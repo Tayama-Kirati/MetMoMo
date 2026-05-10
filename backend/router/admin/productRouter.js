@@ -21,7 +21,7 @@ router.route("/product")
 router.route("/:id")
   .get(catchAsync(getProduct));
 
-router.route("/product/:id")
+router.route("/products/:id")
   .get(catchAsync(getProduct))
   .delete(isAuthenticated, restrictTo("admin"), catchAsync(deleteProduct))
   .patch(isAuthenticated, restrictTo("admin"), upload.single("productImage"), catchAsync(editProduct));

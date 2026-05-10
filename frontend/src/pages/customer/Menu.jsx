@@ -1,114 +1,95 @@
+// ── MENU PAGE ────────────────────────────────────────────────────────
 import { useEffect, useState } from 'react'
-import { Search, SlidersHorizontal } from 'lucide-react'
-import { api,ROUTES } from '../../services/api'
+import { useSearchParams } from 'react-router-dom'
+import { Search, LayoutGrid, List, X } from 'lucide-react'
+import { api, ROUTES } from '../../services/api'
 import ProductCard from '../../components/ui/ProductCard'
+
+const CATS = ['All','Steamed Momo','Fried Momo','Jhol Momo','C-Momo','Kothey Momo','Drinks','Snacks','Desserts','Thali','Newari Special']
 
 export default function Menu() {
   const [products, setProducts] = useState([])
-  const [filtered, setFiltered] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('All')
-  const [status, setStatus] = useState('All')
+  const [loading, setLoading]   = useState(true)
+  const [layout, setLayout]     = useState('grid')
+  const [search, setSearch]     = useState('')
+  const [cat, setCat]           = useState('All')
+  const [status, setStatus]     = useState('All')
+  const [sort, setSort]         = useState('default')
+  const [searchParams]          = useSearchParams()
 
   useEffect(() => {
-    api.get(ROUTES.products).then(({ ok, data }) => {
-      if (ok) { setProducts(data.data || []); setFiltered(data.data || []) }
-    }).finally(() => setLoading(false))
+    const q = searchParams.get('q'), c = searchParams.get('cat')
+    if (q) setSearch(q); if (c) setCat(c)
+  }, [searchParams])
+
+  useEffect(() => {
+    api.get(ROUTES.products).then(({ ok, data }) => { if (ok) setProducts(data.data || []) }).finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    let list = products
-    if (search) list = list.filter(p =>
-      p.productName.toLowerCase().includes(search.toLowerCase()) ||
-      p.productDescription?.toLowerCase().includes(search.toLowerCase())
-    )
-    if (category !== 'All') list = list.filter(p => p.productCategory === category)
-    if (status !== 'All') list = list.filter(p => p.productStatus === status)
-    setFiltered(list)
-  }, [search, category, status, products])
-
-  const categories = ['All', ...new Set(products.map(p => p.productCategory).filter(Boolean))]
+  const filtered = products.filter(p => {
+    const ms = !search || p.productName?.toLowerCase().includes(search.toLowerCase()) || p.productDescription?.toLowerCase().includes(search.toLowerCase())
+    const mc = cat === 'All' || p.productCategory === cat
+    const ms2 = status === 'All' || p.productStatus === status
+    return ms && mc && ms2
+  }).sort((a, b) => sort === 'price-asc' ? a.productPrice - b.productPrice : sort === 'price-desc' ? b.productPrice - a.productPrice : sort === 'name' ? a.productName.localeCompare(b.productName) : 0)
 
   return (
-    <div className="page-container">
-      <div className="mb-10">
-        <div className="badge-orange text-5xl justify-center text-center font-serif font-extrabold ml-10 mb-3">Our Menu</div>
-        <h1 className="section-title text-3xl text-center font-serif font-normal ml-10 mb-3">Everything We Serve</h1>
-        <p className="text-muted  text-center text-thin ml-10">Freshly prepared, authentically Nepali.</p>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 ml-10 mb-8">
-        <div className="relative flex-1">
-          <Search size={16} className="absolute  left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            className="input-field pl-10"
-            placeholder="Search momos..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-3 flex-wrap">
-          <select className="input-field w-auto mr-10" value={category} onChange={e => setCategory(e.target.value)}>
-            {categories.map(c => <option key={c}>{c}</option>)}
-          </select>
-          {/* <select className="input-field w-auto" value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="All">All Status</option>
-            <option value="available">Available</option>
-            <option value="unavailable">Unavailable</option>
-          </select> */}
+    <div>
+      <div className="bg-pink text-white py-12 stripe-bg" style={{backgroundImage:'none'}}>
+        <div className="wrap">
+          <h1 className="font-display font-black text-4xl mb-3">Our Menu</h1>
+          <p className="text-pink-100 mb-6">{products.length} freshly made items</p>
+          <div className="relative max-w-lg">
+            <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none"/>
+            <input className="w-full bg-white/20 backdrop-blur border border-white/30 rounded-full pl-12 pr-4 py-3.5 text-white placeholder:text-white/50 focus:outline-none focus:border-white transition-all text-sm"
+              placeholder="Search momos, drinks..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
         </div>
       </div>
 
-      {/* Category pills */}
-      <div className="flex gap-2 flex-wrap mb-8">
-        {categories.map(c => (
-          <button
-            key={c}
-            onClick={() => setCategory(c)}
-            className={`px-4 py-2 rounded-full text-sm font-body font-semibold transition-all duration-150 border
-              ${category === c
-                ? 'bg-orange text-white border-orange shadow-orange-sm'
-                : 'bg-dark-3 text-muted border-mid hover:border-orange hover:text-orange'
-              }`}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
+      <div className="page-wrap">
+        {/* Category pills */}
+        <div className="flex gap-2 flex-wrap mb-5 overflow-x-auto pb-1">
+          {CATS.map(c => <button key={c} onClick={() => setCat(c)} className={`chip whitespace-nowrap ${cat === c ? 'chip-active' : 'chip-idle'}`}>{c}</button>)}
+        </div>
 
-      {/* Results count */}
-      <p className="text-muted text-sm mb-6">
-        {loading ? 'Loading...' : `${filtered.length} item${filtered.length !== 1 ? 's' : ''} found`}
-      </p>
-
-      {/* Grid */}
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="rounded-xl overflow-hidden">
-              <div className="skeleton aspect-[4/3] w-full" />
-              <div className="bg-dark-2 p-4 space-y-2">
-                <div className="skeleton h-5 w-3/4 rounded" />
-                <div className="skeleton h-3 w-full rounded" />
-              </div>
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <div className="flex gap-2">
+            <select className="input-field text-sm py-2 w-auto rounded-full" value={status} onChange={e => setStatus(e.target.value)}>
+              <option value="All">All Status</option>
+              <option value="available">Available</option>
+              <option value="unavailable">Unavailable</option>
+            </select>
+            <select className="input-field text-sm py-2 w-auto rounded-full" value={sort} onChange={e => setSort(e.target.value)}>
+              <option value="default">Default</option>
+              <option value="price-asc">Price ↑</option>
+              <option value="price-desc">Price ↓</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-muted text-sm">{filtered.length} items</span>
+            <div className="flex bg-pink-50 rounded-xl p-1 gap-1">
+              <button onClick={() => setLayout('grid')} className={`p-2 rounded-xl transition-all ${layout==='grid'?'bg-pink text-white shadow-pink-sm':'text-slate'}`}><LayoutGrid size={15}/></button>
+              <button onClick={() => setLayout('list')} className={`p-2 rounded-xl transition-all ${layout==='list'?'bg-pink text-white shadow-pink-sm':'text-slate'}`}><List size={15}/></button>
             </div>
-          ))}
+          </div>
         </div>
-      ) : filtered.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {filtered.map(p => <ProductCard key={p._id} product={p} />)}
-        </div>
-      ) : (
-        <div className="text-center py-24">
-          <div className="text-6xl mb-4">🔍</div>
-          <p className="text-muted font-serif font-normal text-lg">No items match your search.</p>
-          <button onClick={() => { setSearch(''); setCategory('All'); setStatus('All') }} className="btn-secondary font-serif font-thin  mt-4">
-            Clear Filters
-          </button>
-        </div>
-      )}
+
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">{[...Array(8)].map((_,i) => <div key={i} className="skeleton aspect-[4/3] rounded-3xl" />)}</div>
+        ) : filtered.length > 0 ? (
+          layout === 'grid'
+            ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">{filtered.map(p => <ProductCard key={p._id} product={p} />)}</div>
+            : <div className="space-y-3 max-w-3xl">{filtered.map(p => <ProductCard key={p._id} product={p} layout="list" />)}</div>
+        ) : (
+          <div className="text-center py-20">
+            <p className="text-5xl mb-4">🔍</p>
+            <p className="font-display font-bold text-xl text-ink mb-2">Nothing found</p>
+            <button onClick={() => { setSearch(''); setCat('All') }} className="btn-pink mt-3">Clear Filters</button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

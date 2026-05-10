@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Clash Display"', 'Syne', 'sans-serif'],
+        display: ['"Fredoka One"', 'cursive'],
         body: ['"DM Sans"', 'sans-serif'],
       },
       colors: {

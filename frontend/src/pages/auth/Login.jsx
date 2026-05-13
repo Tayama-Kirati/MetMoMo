@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { api, ROUTES } from '../../services/api'
+import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
 export default function Login() {

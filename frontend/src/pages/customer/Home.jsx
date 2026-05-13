@@ -253,11 +253,11 @@ export default function Home() {
                 <h2 className="section-title">Most Loved Items</h2>
                 <p className="section-sub">Fresh from our partner restaurants</p>
               </div>
-              <Link to="/menu" className="btn-soft gap-1 text-sm">Full menu <ArrowRight size={14}/></Link>
+              <Link to="/products" className="btn-soft gap-1 text-sm">Full menu <ArrowRight size={14}/></Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
               {featured.map((p, i) => (
-                <Link key={p._id || i} to={p._id ? `/product/${p._id}` : '/menu'} className="card-hover group overflow-hidden">
+                <Link key={p._id || i} to={p._id ? `/products/${p._id}` : '/products'} className="card-hover group overflow-hidden">
                   <div className="relative aspect-[4/3] overflow-hidden bg-pink-50">
                     {(p.productImage || p.img) ? (
                       <img src={p.productImage || p.img} alt={p.productName || p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />

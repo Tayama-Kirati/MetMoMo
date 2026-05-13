@@ -243,7 +243,7 @@ async function seed() {
   try {
     console.log('🔌 Connecting to database...')
     await mongoose.connect(process.env.MONGO_URI)
-    console.log('✅ Connected!\n')
+    console.log('Connected!\n')
 
     console.log('🗑️  Clearing existing data...')
     await Promise.all([
@@ -253,13 +253,13 @@ async function seed() {
       Order.deleteMany({}),
       Restaurant.deleteMany({}),
     ])
-    console.log('✅ Cleared!\n')
+    console.log('Cleared!\n')
 
     // Users
     console.log('👥 Seeding users...')
     const users      = await User.insertMany(USERS)
     const customers  = users.filter(u => u.userRole === 'customer')
-    console.log(`✅ ${users.length} users created\n`)
+    console.log(`${users.length} users created\n`)
 
     // Restaurants
     console.log('Seeding restaurants...')
@@ -273,7 +273,7 @@ async function seed() {
     console.log(`${products.length} products created\n`)
 
     // Reviews
-    console.log('⭐ Seeding reviews...')
+    console.log('Seeding reviews...')
     const reviewData = products.slice(0, 15).map((p, i) => ({
       userId:    customers[i % customers.length]._id,
       productId: p._id,
@@ -281,10 +281,10 @@ async function seed() {
       message:   REVIEW_MESSAGES[i % REVIEW_MESSAGES.length],
     }))
     const reviews = await Review.insertMany(reviewData)
-    console.log(`✅ ${reviews.length} reviews created\n`)
+    console.log(`${reviews.length} reviews created\n`)
 
     // Orders
-    console.log('📦 Seeding orders...')
+    console.log('Seeding orders...')
     const STATUSES   = ['pending','preparation','ontheway','delivered','delivered']
     const ADDRESSES  = ['Thamel, Kathmandu','Lazimpat, Kathmandu','Patan Dhoka, Lalitpur','Baneshwor, Kathmandu','Baluwatar, Kathmandu']
     const orderData  = []
@@ -304,11 +304,8 @@ async function seed() {
       })
     }
     const orders = await Order.insertMany(orderData)
-    console.log(`✅ ${orders.length} orders created\n`)
-
-    console.log('═══════════════════════════════════════════════')
-    console.log('🎉 Database seeded successfully!')
-    console.log('═══════════════════════════════════════════════')
+    console.log(`${orders.length} orders created\n`)
+ 
     console.log(`👥 Users:       ${users.length}`)
     console.log(`🏪 Restaurants: ${restaurants.length}`)
     console.log(`🍜 Products:    ${products.length}`)
@@ -321,7 +318,7 @@ async function seed() {
 
     process.exit(0)
   } catch (err) {
-    console.error('❌ Seeder error:', err.message)
+    console.error('Seeder error:', err.message)
     process.exit(1)
   }
 }

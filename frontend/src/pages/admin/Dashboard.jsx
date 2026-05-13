@@ -17,7 +17,7 @@ export default function AdminDashboard() {
         if (u.ok) setUsers(u.data.data || [])
         if (p.ok) setProducts(p.data.data || [])
         if (o.ok) setOrders(o.data.orders || [])
-        if (r.ok) setRestaurants(r.data.data || [])
+        if (r.ok) setRestaurants(r.data.restaurants || [])
       }).finally(() => setLoading(false))
   }, [])
 

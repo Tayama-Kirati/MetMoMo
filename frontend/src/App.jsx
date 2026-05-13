@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth }     from './context/AuthContext'
 import { CartProvider }              from './context/CartContext'
@@ -9,9 +9,9 @@ import Login          from './pages/auth/Login'
 import AdminLogin     from './pages/auth/AdminLogin'
 import Register       from './pages/auth/Register'
 import ForgotPassword from './pages/auth/ForgotPassword'
+import ProtectedRoute,{GuestRoute, RoleRedirect } from './components/ProtectedRoutes'
 
 import Home           from './pages/customer/Home'
-import Menu           from './pages/customer/Menu'
 import Restaurants    from './pages/customer/Restaurants'
 import RestaurantMenu from './pages/customer/RestaurantMenu'
 import ProductDetail  from './pages/customer/ProductDetail'
@@ -22,7 +22,7 @@ import Wishlist       from './pages/customer/Wishlist'
 
 import AdminDashboard   from './pages/admin/Dashboard'
 import AdminProducts    from './pages/admin/Products'
-import AdminRestaurants from './pages/admin/Restaurants'
+import AdminRestaurants from './pages/admin/AdminRestaurants'
 import AdminUsers       from './pages/admin/Users'
 import AdminOrders      from './pages/admin/Orders'
 
@@ -30,9 +30,14 @@ function PageLoader() {
   return (
     <div className="fixed inset-0 bg-blush flex items-center justify-center z-50">
       <div className="text-center">
-        <div className="text-7xl mb-4 animate-float inline-block">🍜</div>
+        <div className="text-7xl mb-4 animate-float inline-block">
+          <img src="/logo.png" alt="MetMomo" className="w-16 h-16"/>
+        </div>
+        <div className="text-2xl font-display font-bold text-ink mb-2 animate-float">
+          MetMomo 
+        </div>
         <div className="w-10 h-10 border-[3px] border-pink/20 border-t-pink rounded-full animate-spin mx-auto"/>
-        <p className="text-muted text-sm mt-4 font-display font-semibold">Loading MoMoGo...</p>
+        <p className="text-muted text-sm mt-4 font-display font-semibold">Loading MetMomo..</p>
       </div>
     </div>
   )
@@ -49,19 +54,21 @@ function AdminRoute({ children }) {
   if (user?.userRole !== 'admin') return <Navigate to="/" replace />
   return children
 }
-function GuestRoute({ children }) {
-  const { token, loading } = useAuth()
-  if (loading) return <PageLoader/>
-  return token ? <Navigate to="/" replace /> : children
-}
+// function GuestRoute({ children }) {
+//   const { token, loading } = useAuth()
+//   if (loading) return <PageLoader/>
+//   return token ? <Navigate to="/" replace /> : children
+// }
 
 function AppRoutes() {
   return (
     <Layout>
+       
       <Routes>
         <Route path="/"                element={<Home />} />
-        <Route path="/menu"            element={<Menu />} />
         <Route path="/restaurants"     element={<Restaurants />} />
+        <Route path="/redirect" element={<RoleRedirect/>}/>
+
         <Route path="/restaurants/:id" element={<RestaurantMenu />} />
         <Route path="/product/:id"     element={<ProductDetail />} />
 
@@ -81,15 +88,18 @@ function AppRoutes() {
         <Route path="/admin/users"         element={<AdminRoute><AdminUsers /></AdminRoute>} />
         <Route path="/admin/orders"        element={<AdminRoute><AdminOrders /></AdminRoute>} />
 
+         
         <Route path="*" element={
           <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 py-20">
-            <div className="text-8xl mb-6 animate-float">🍜</div>
+            <div className="text-8xl mb-6 animate-float">
+              <img src="/logo.png" alt="MetMomo" className="w-20 h-20"/>
+            </div>
             <h1 className="font-display font-black text-5xl text-ink mb-3">404</h1>
             <p className="text-muted text-lg mb-8">This page doesn't exist.</p>
             <a href="/" className="btn-pink px-8 py-3.5 text-base">Back to Home</a>
           </div>
         }/>
-      </Routes>
+      </Routes> 
     </Layout>
   )
 }
@@ -99,7 +109,7 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <WishlistProvider>
-          <AppRoutes />
+          <AppRoutes>
           <Toaster position="top-right" gutter={8}
             toastOptions={{
               duration: 3000,
@@ -108,6 +118,7 @@ export default function App() {
               error:   { iconTheme: { primary:'#EF4444', secondary:'#fff' } },
             }}
           />
+          </AppRoutes>
         </WishlistProvider>
       </CartProvider>
     </AuthProvider>

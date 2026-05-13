@@ -88,7 +88,7 @@ export default function Navbar() {
           {/* Desktop nav */}
           <div className="hidden md:flex items-center justify-center gap-12 flex-1 ml-9">
             <NavLink to="/" label="Home" pathname={pathname} />
-            <NavLink to="/menu" label="Menu" pathname={pathname} />
+            <NavLink to="/restaurants" label="Restaurants" pathname={pathname} />
             <NavLink to="/orders" label="My Orders" pathname={pathname} />
             {isAdmin && <NavLink to="/admin" label="Admin" pathname={pathname} />}
           </div>
@@ -129,7 +129,7 @@ export default function Navbar() {
                         { to: '/profile',  icon: <User size={14}/>, label: 'My Profile' },
                         { to: '/orders',   icon: <ShoppingCart size={14}/>, label: 'My Orders' },
                         { to: '/wishlist', icon: <Heart size={14}/>, label: 'Wishlist' },
-                        ...(isAdmin ? [{ to: '/admin', icon: <LayoutDashboard size={14}/>, label: 'Admin Panel' }] : []),
+                        (isAdmin ? [{ to: '/admin', icon: <LayoutDashboard size={14}/>, label: 'Admin Panel' }] : []),
                       ].map(item => (
                         <Link key={item.to} to={item.to} onClick={() => setDrop(false)}
                           className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm text-ink hover:bg-pink-50 hover:text-pink transition-colors">
@@ -165,7 +165,7 @@ export default function Navbar() {
         <div className="md:hidden fixed inset-0 z-40 pt-16" onClick={() => setOpen(false)}>
           <div className="bg-white border-b border-faint shadow-float px-4 py-4 flex flex-col gap-1 animate-slide-up" onClick={e => e.stopPropagation()}>
             {[
-              { to: '/', l: 'Home' }, { to: '/menu', l: 'Menu' }, { to: '/orders', l: 'My Orders' },
+              { to: '/', l: 'Home' }, { to: '/restaurants', l: 'Restaurants' }, { to: '/orders', l: 'My Orders' },
               ...(user ? [{ to: '/wishlist', l: 'Wishlist' }, { to: '/cart', l: `Cart${cartCount > 0 ? ` (${cartCount})` : ''}` }, { to: '/profile', l: 'Profile' }] : []),
               ...(isAdmin ? [{ to: '/admin', l: 'Admin Dashboard' }] : []),
             ].map(({ to, l }) => (

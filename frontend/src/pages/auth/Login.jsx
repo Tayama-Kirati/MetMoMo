@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { use, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -8,6 +8,8 @@ import toast from 'react-hot-toast'
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -17,9 +19,24 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    const { ok, data } = await api.post(ROUTES.login, form)
-    if (ok && data.token) { login(data.token); toast.success('Welcome back'); navigate('/') }
-    else toast.error(data.message || 'Invalid credentials')
+
+    const { ok, data } = await api.post(ROUTES.login,  {
+      email: form.email,
+      password: form.password,
+    })
+
+    if (ok && data.token) { login(data.token); toast.success(`Welcome back, ${data.user?.userName || 'there'}!`); 
+    if (data.user?.userRole === 'admin') {
+        navigate('/admin', { replace: true })
+      } else {
+        // Go back to where they were, or home
+        const from = location.state?.from?.pathname || '/'
+        navigate(from, { replace: true })
+      }
+    } else {
+      toast.error(data?.message || 'Invalid credentials')
+    }
+ 
     setLoading(false)
   }
 
@@ -32,7 +49,7 @@ export default function Login() {
       callback: async (res) => {
         setLoading(true)
         const { ok, data } = await api.post('/auth/google', { credential: res.credential })
-        if (ok && data.token) { login(data.token); toast.success('Signed in with Google!'); navigate('/') }
+        if (ok && data.token) { login(data.token); toast.success('Signed in with Google!'); navigate(location.state?.from || '/') }
         else toast.error(data?.message || 'Google sign-in failed')
         setLoading(false)
       },
@@ -48,9 +65,7 @@ export default function Login() {
         <Link
           to="/"
           className="flex items-center gap-1.5 text-sm font-bold  text-gray-500 hover:text-pink-600 transition-colors mb-5"
-        >
-          ← Back
-        </Link>
+        > ← Back to Home        </Link>
 
         {/* Card */}
         <div className="bg-pink-50 rounded-2xl border border-pink-200 shadow-sm px-6 sm:px-9 py-10">

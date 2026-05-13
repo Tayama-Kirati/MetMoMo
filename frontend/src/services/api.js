@@ -1,4 +1,5 @@
 const getToken = () => localStorage.getItem('mg_token')
+
 const req = async (method, path, body, isForm = false) => {
   const headers = {}
   const token = getToken()
@@ -12,23 +13,53 @@ const req = async (method, path, body, isForm = false) => {
   try { data = await res.json() } catch { data = {} }
   return { ok: res.ok, status: res.status, data }
 }
+
 export const ROUTES = {
-  login: '/auth/login', register: '/auth/register',
-  forgotPassword: '/auth/forgotpassword', verifyOtp: '/auth/verifyotp', resetPassword: '/auth/resetpassword',
-  products: '/products', product: (id) => `/products/${id}`,
-  restaurants: '/restaurants', restaurant: (id) => `/restaurants/${id}`, restaurantMenu: (id) => `/restaurants/${id}/menu`,
-  profile: '/profile', changePassword: '/profile/changePassword',
-  cart: '/cart', cartItem: (id) => `/cart/${id}`,
-  orders: '/orders', createOrder: '/orders/create', allOrders: '/orders/all',
-  order: (id) => `/orders/${id}`, updateStatus: (id) => `/orders/${id}/status`,
-  rateOrder: (id) => `/orders/${id}/rate`, cancelOrder: (id) => `/orders/${id}/cancel`,
-  myReviews: '/reviews/reviews', productReviews: (id) => `/reviews/reviews/${id}`,
-  createReview: (id) => `/reviews/reviews/${id}`, deleteReview: (id) => `/reviews/reviews/${id}`,
-  adminUsers: '/admin/users', adminUser: (id) => `/admin/users/${id}`,
+  login: '/auth/login', 
+  register: '/auth/register',
+
+  forgotPassword: '/auth/forgotpassword', 
+  verifyOtp: '/auth/verifyotp', 
+  resetPassword: '/auth/resetpassword',
+
+  products: '/products',
+  product: (id) => `/products/${id}`,
+
+  restaurants: '/restaurants', 
+  restaurant: (id) => `/restaurants/${id}`, 
+  restaurantMenu: (id) => `/restaurants/${id}/menu`,
+  adminCreateRestaurant:   '/restaurants',
+  adminUpdateRestaurant:   (id) => `/restaurants/${id}`,
+  profile: '/profile', 
+  changePassword: '/profile/changePassword',
+
+  cart: '/cart', 
+  cartItem: (id) => `/cart/${id}`,
+
+  orders: '/orders', 
+  createOrder: '/orders/create', 
+  allOrders: '/orders/all',
+  order: (id) => `/orders/${id}`, 
+  updateStatus: (id) => `/orders/${id}/status`,
+  rateOrder: (id) => `/orders/${id}/rate`, 
+  cancelOrder: (id) => `/orders/${id}/cancel`,
+
+  myReviews: '/reviews/reviews', 
+  productReviews: (id) => `/reviews/reviews/${id}`,
+  createReview: (id) => `/reviews/reviews/${id}`, 
+  deleteReview: (id) => `/reviews/reviews/${id}`,
+  
+  adminUsers: '/admin/users', 
+  adminUser: (id) => `/admin/users/${id}`,
 }
 export const api = {
-  get: (path) => req('GET', path), post: (path, body) => req('POST', path, body),
-  patch: (path, body) => req('PATCH', path, body), delete: (path) => req('DELETE', path),
-  postForm: (path, fd) => req('POST', path, fd, true), patchForm: (path, fd) => req('PATCH', path, fd, true),
+  get:      (path)       => req('GET',    path),
+  post:     (path, body) => req('POST',   path, body),
+  patch:    (path, body) => req('PATCH',  path, body),
+  put:      (path, body) => req('PUT',    path, body),
+  delete:   (path)       => req('DELETE', path),
+  postForm: (path, fd)   => req('POST',   path, fd, true),
+  patchForm:(path, fd)   => req('PATCH',  path, fd, true),
+  putForm:  (path, fd)   => req('PUT',    path, fd, true),
 }
 export default api

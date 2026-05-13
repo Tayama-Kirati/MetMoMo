@@ -255,15 +255,42 @@ export default function Restaurants() {
   const [search, setSearch]           = useState('')
   const [filter, setFilter]           = useState('all')
 
-  useEffect(() => {
-    api.get(ROUTES.restaurants)
-      .then(({ ok, data }) => {
-        if (ok) setRestaurants(data?.restaurants || [])
-          
-        else toast.error('Failed to load restaurants')
-      })
-      .catch(() => toast.error('Something went wrong'))
-      .finally(() => setLoading(false))
+   useEffect(() => {
+    const fetchRestaurants = async () => {
+      try {
+        setLoading(true)
+
+        console.log('Fetching:', ROUTES.restaurants)
+
+        const response = await api.get(ROUTES.restaurants)
+
+        console.log('API Response:', response)
+
+        if (response?.ok) {
+          const restaurantData =
+            response?.data?.restaurants ||
+            response?.data?.data ||
+            response?.data ||
+            []
+
+          console.log('Restaurants:', restaurantData)
+
+          setRestaurants(Array.isArray(restaurantData) ? restaurantData : [])
+        } else {
+          toast.error('Failed to load restaurants')
+          setRestaurants([])
+        }
+      } catch (error) {
+        console.error('Restaurant Fetch Error:', error)
+
+        toast.error('Something went wrong')
+        setRestaurants([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRestaurants()
   }, [])
 
   const filtered = useMemo(() => {
@@ -332,7 +359,7 @@ export default function Restaurants() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          /* Empty state */
+            /* Empty state */
           <div className="text-center py-20">
             <p className="text-5xl mb-4">🔍</p>
             <p className="font-display font-bold text-xl text-ink mb-2">No restaurants found</p>

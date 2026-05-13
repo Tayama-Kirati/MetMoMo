@@ -6,12 +6,12 @@ const catchAsync = require("../../services/catchAsync");
 
 // POST /api/auth/register
 exports.registerUser = catchAsync(async (req, res) => {
-  const { email, userName, phoneNumber, password } = req.body;
+  const { email, userName, phoneNumber, password, firstName, lastName } = req.body;
 
   if (!email || !userName || !phoneNumber || !password) {
     return res.status(400).json({ message: "Please provide email, password, name and phoneNumber" });
   }
- 
+
   const existing = await User.find({ userEmail: email });
   if (existing.length > 0) {
     return res.status(400).json({ message: "User with that email is already registered" });
@@ -19,7 +19,9 @@ exports.registerUser = catchAsync(async (req, res) => {
 
   await User.create({
     userName,
-    userPhoneNumber: phoneNumber,
+    firstName: firstName || '',
+    lastName:  lastName  || '',
+    userPhoneNumber: String(phoneNumber),
     userEmail: email,
     userPassword: bcrypt.hashSync(password, 10),
   });
@@ -42,10 +44,12 @@ exports.loginUser = catchAsync(async (req, res) => {
 
   const isPasswordCorrect = bcrypt.compareSync(password, userFound[0].userPassword);
 
-
   if (!isPasswordCorrect) {
     return res.status(400).json({ message: "Incorrect password" });
   }
+
+  userFound[0].lastLogin = new Date();
+  await userFound[0].save();
 
   const token = jwt.sign({ id: userFound[0]._id }, process.env.SECRET_KEY, { expiresIn: "30d" });
 

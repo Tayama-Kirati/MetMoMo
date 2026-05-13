@@ -10,14 +10,34 @@ exports.getMyProfile = async (req, res) => {
 
 // PATCH /api/profile
 exports.updateMyProfile = async (req, res) => {
-  const { userName, userEmail, userPhoneNumber } = req.body;
+  const {
+    userName, firstName, lastName, dateOfBirth,
+    userEmail, userPhoneNumber, profileImage,
+    address, city, state, country, postalCode, landmark, deliveryInstructions,
+    preferences,
+  } = req.body;
   const userId = req.user.id;
   const updatedData = await User.findByIdAndUpdate(
     userId,
-    { userName, userEmail, userPhoneNumber },
+    {
+      ...(userName        !== undefined && { userName }),
+      ...(firstName       !== undefined && { firstName }),
+      ...(lastName        !== undefined && { lastName }),
+      ...(dateOfBirth     !== undefined && { dateOfBirth }),
+      ...(userEmail       !== undefined && { userEmail }),
+      ...(userPhoneNumber !== undefined && { userPhoneNumber }),
+      ...(profileImage    !== undefined && { profileImage }),
+      ...(address         !== undefined && { address }),
+      ...(city            !== undefined && { city }),
+      ...(state           !== undefined && { state }),
+      ...(country         !== undefined && { country }),
+      ...(postalCode      !== undefined && { postalCode }),
+      ...(landmark        !== undefined && { landmark }),
+      ...(deliveryInstructions !== undefined && { deliveryInstructions }),
+      ...(preferences     !== undefined && { preferences }),
+    },
     { new: true, runValidators: true }
-  ).select("-userPassword");
-  // FIX: was res.status(200).jsom(...) — typo crashed this endpoint every time
+  ).select("-userPassword -otp -otpIsVerified");
   res.status(200).json({ message: "Profile updated successfully", data: updatedData });
 };
 

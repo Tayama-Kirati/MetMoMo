@@ -1,8 +1,4 @@
-/**
- * MoMoGo Full Seeder
- * Run: node seeds/seeder.js
- * Seeds: 6 users · 8 restaurants · 30 products · 15 reviews · 10 orders
- */
+ 
 require('dotenv').config()
 const mongoose = require('mongoose')
 const bcrypt   = require('bcryptjs')
@@ -10,7 +6,7 @@ const bcrypt   = require('bcryptjs')
 const User       = require('../models/userModel')
 const Product    = require('../models/productModel')
 const Review     = require('../models/reviewModel')
-const Order      = require('../models/orderModel')
+const Order      = require('../models/orderSchema')
 const Restaurant = require('../models/restaurantModel')
 
 // ── Users ─────────────────────────────────────────────────────────────

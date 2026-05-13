@@ -66,7 +66,7 @@ function AppRoutes() {
        
       <Routes>
         <Route path="/"                element={<Home />} />
-        <Route path="/restaurants"     element={<Restaurants />} />
+        <Route path="restaurants"     element={<Restaurants />} />
         <Route path="/redirect" element={<RoleRedirect/>}/>
 
         <Route path="/restaurants/:id" element={<RestaurantMenu />} />

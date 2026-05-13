@@ -76,10 +76,10 @@ const restaurantSchema = new Schema({
     default: '8:00 AM – 10:00 PM',
   },
   location: {
-    district: { type: String, default: 'Kathmandu' },
+    district: { type: String, default: '' },
     area:     { type: String, default: '' },
   },
 }, { timestamps: true })
 
-const Restaurant = mongoose.model('Restaurant', restaurantSchema)
-module.exports = Restaurant
+const Restaurants = mongoose.model('Restaurant', restaurantSchema)
+module.exports = Restaurants

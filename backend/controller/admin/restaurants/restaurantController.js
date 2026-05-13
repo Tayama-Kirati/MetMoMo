@@ -1,6 +1,7 @@
 const Restaurant = require('../../../models/restaurantModel')
 const Product    = require('../../../models/productModel')
 const catchAsync = require('../../../services/catchAsync')
+const Restaurants = require('../../../models/restaurantModel')
 
 // ── PUBLIC ──────────────────────────────────────────────────────────
 
@@ -12,13 +13,13 @@ exports.getAllRestaurants = catchAsync(async (req, res) => {
   if (popular   === 'true')  filter.isPopular   = true
   if (featured  === 'true')  filter.isFeatured  = true
 
-  const restaurants = await Restaurant.find(filter).sort({ isFeatured: -1, isPopular: -1, createdAt: -1 })
+  const restaurants = await Restaurants.find(filter).sort({ isFeatured: -1, isPopular: -1, createdAt: -1 })
   res.status(200).json({ message: 'Restaurants fetched successfully', data: restaurants })
 })
 
 // GET /api/restaurants/:id
 exports.getRestaurant = catchAsync(async (req, res) => {
-  const restaurant = await Restaurant.findById(req.params.id)
+  const restaurant = await Restaurants.findById(req.params.id)
   if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' })
   res.status(200).json({ message: 'Restaurant fetched successfully', data: restaurant })
 })
@@ -26,7 +27,7 @@ exports.getRestaurant = catchAsync(async (req, res) => {
 // GET /api/restaurants/:id/menu  — all products belonging to this restaurant
 exports.getRestaurantMenu = catchAsync(async (req, res) => {
   const { id } = req.params
-  const restaurant = await Restaurant.findById(id)
+  const restaurant = await Restaurants.findById(id)
   if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' })
 
   const { category, status } = req.query
@@ -65,7 +66,7 @@ exports.createRestaurant = catchAsync(async (req, res) => {
     logo = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/${req.files.logo[0].filename}`
   }
 
-  const restaurant = await Restaurant.create({
+  const restaurant = await Restaurants.create({
     name, description, address, phone, email,
     coverImage, logo,
     cuisine:      cuisine ? (Array.isArray(cuisine) ? cuisine : cuisine.split(',').map(s => s.trim())) : [],
@@ -86,7 +87,7 @@ exports.createRestaurant = catchAsync(async (req, res) => {
 
 // PATCH /api/restaurants/:id
 exports.updateRestaurant = catchAsync(async (req, res) => {
-  const restaurant = await Restaurant.findById(req.params.id)
+  const restaurant = await Restaurants.findById(req.params.id)
   if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' })
 
   const allowed = [
@@ -111,7 +112,7 @@ exports.updateRestaurant = catchAsync(async (req, res) => {
 
 // DELETE /api/restaurants/:id
 exports.deleteRestaurant = catchAsync(async (req, res) => {
-  const restaurant = await Restaurant.findByIdAndDelete(req.params.id)
+  const restaurant = await Restaurants.findByIdAndDelete(req.params.id)
   if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' })
 
   // Unlink products from this restaurant (don't delete them)

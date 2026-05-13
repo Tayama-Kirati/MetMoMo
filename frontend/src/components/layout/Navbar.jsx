@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ShoppingCart, Heart, Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Search, Bell } from 'lucide-react'
+import { ShoppingCart, Heart, Menu, X, ChevronDown, User, LogOut, LayoutDashboard } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
@@ -7,6 +7,41 @@ import { useWishlist } from '../../context/WishlistContext'
 import toast from 'react-hot-toast'
 import  '../../assets/momo.webp'
 
+function LogoutModal({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-[0_20px_60px_rgba(0,0,0,0.2)] animate-scale-in text-center">
+        <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+          <LogOut size={28} className="text-red-400" />
+        </div>
+        <h3 className="font-display font-bold text-xl mb-2" style={{color:'#2D1B25'}}>Sign Out?</h3>
+        <p className="text-slate text-sm mb-6">Are you sure you want to sign out of your MetMomo account?</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className="flex-1 h-11 rounded-2xl border border-gray-200 text-slate font-semibold hover:bg-pink-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 h-11 rounded-2xl bg-red-500 text-white font-semibold hover:bg-red-600 active:scale-95 transition-all">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const NavLink = ({ to, label, pathname }) => {
+  const active = pathname === to || (to !== '/' && pathname.startsWith(to))
+  return (
+    <Link to={to}
+      className={`font-display font-semibold text-sm transition-all duration-150 px-1 py-0.5 relative
+        ${active ? 'text-pink' : 'text-slate hover:text-pink'}`}>
+      {label}
+      {active && <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-pink rounded-full" />}
+    </Link>
+  )
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth()
@@ -17,6 +52,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [drop, setDrop] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [showLogout, setShowLogout] = useState(false)
   const dropRef = useRef(null)
   const isAdmin = user?.userRole === 'admin'
 
@@ -32,19 +68,7 @@ export default function Navbar() {
   }, [])
   useEffect(() => { setOpen(false) }, [pathname])
 
-  const handleLogout = () => { logout(); toast.success('See you soon!'); navigate('/') }
-
-  const NavLink = ({ to, label }) => {
-    const active = pathname === to || (to !== '/' && pathname.startsWith(to))
-    return (
-      <Link to={to}
-        className={`font-display font-semibold text-sm transition-all duration-150 px-1 py-0.5 relative
-          ${active ? 'text-pink' : 'text-slate hover:text-pink'}`}>
-        {label}
-        {active && <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-pink rounded-full" />}
-      </Link>
-    )
-  }
+  const confirmLogout = () => { logout(); toast.success('See you soon!'); navigate('/'); setShowLogout(false) }
 
   return (
     <>
@@ -55,19 +79,18 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 shrink-0 mr-2">
             {/* <div className="w-9 h-9 rounded-2xl bg-pink flex items-center justify-center text-white text-lg shadow-pink-sm font-display font-black">M</div> */}
-            <img src="/assets/momo.webp" alt="Metmomo Logo" className="w-9 h-9 rounded-2xl object-cover " />
-            <span className="font--display: 'Fredoka One', cursive;  font-black text-xl text-ink">
+            {/* <img src="/assets/momo.webp" alt="Metmomo Logo" className="w-9 h-9 rounded-2xl object-cover -ml-12 -mt-1" /> */}
+            <span className="font-display   font-black text-3xl text-ink -ml-15">
               Met<span className="text-pink">MoMo</span>
             </span>
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-6 flex-1">
-            <NavLink to="/" label="Home" />
-            <NavLink to="/restaurants" label="Restaurants" />
-            <NavLink to="/menu" label="Menu" />
-            {user && <NavLink to="/orders" label="My Orders" />}
-            {isAdmin && <NavLink to="/admin" label="Admin" />}
+          <div className="hidden md:flex items-center justify-center gap-12 flex-1 ml-9">
+            <NavLink to="/" label="Home" pathname={pathname} />
+            <NavLink to="/menu" label="Menu" pathname={pathname} />
+            <NavLink to="/orders" label="My Orders" pathname={pathname} />
+            {isAdmin && <NavLink to="/admin" label="Admin" pathname={pathname} />}
           </div>
 
           {/* Actions */}
@@ -114,7 +137,7 @@ export default function Navbar() {
                         </Link>
                       ))}
                       <div className="border-t border-faint mt-1 pt-1">
-                        <button onClick={handleLogout}
+                        <button onClick={() => { setDrop(false); setShowLogout(true) }}
                           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm text-red-500 hover:bg-red-50 transition-colors">
                           <LogOut size={14}/> Sign Out
                         </button>
@@ -126,7 +149,7 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-2">
                 <Link to="/login"    className="btn-outline text-sm px-4 py-2 hidden sm:inline-flex">Login</Link>
-                <Link to="/register" className="btn-pink text-sm px-4 py-2">Sign Up</Link>
+                <Link to="/register" className="btn-outline text-sm px-4 py-2">Sign Up</Link>
               </div>
             )}
 
@@ -142,8 +165,8 @@ export default function Navbar() {
         <div className="md:hidden fixed inset-0 z-40 pt-16" onClick={() => setOpen(false)}>
           <div className="bg-white border-b border-faint shadow-float px-4 py-4 flex flex-col gap-1 animate-slide-up" onClick={e => e.stopPropagation()}>
             {[
-              { to: '/', l: 'Home' }, { to: '/restaurants', l: 'Restaurants' }, { to: '/menu', l: 'Menu' },
-              ...(user ? [{ to: '/orders', l: 'My Orders' }, { to: '/wishlist', l: 'Wishlist' }, { to: '/cart', l: `Cart${cartCount > 0 ? ` (${cartCount})` : ''}` }, { to: '/profile', l: 'Profile' }] : []),
+              { to: '/', l: 'Home' }, { to: '/menu', l: 'Menu' }, { to: '/orders', l: 'My Orders' },
+              ...(user ? [{ to: '/wishlist', l: 'Wishlist' }, { to: '/cart', l: `Cart${cartCount > 0 ? ` (${cartCount})` : ''}` }, { to: '/profile', l: 'Profile' }] : []),
               ...(isAdmin ? [{ to: '/admin', l: 'Admin Dashboard' }] : []),
             ].map(({ to, l }) => (
               <Link key={to} to={to}
@@ -157,13 +180,15 @@ export default function Navbar() {
                 <Link to="/register" className="btn-pink flex-1 justify-center py-3">Sign Up</Link>
               </div>
             ) : (
-              <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm text-red-500 hover:bg-red-50 mt-1 border-t border-faint pt-3">
+              <button onClick={() => { setOpen(false); setShowLogout(true) }} className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm text-red-500 hover:bg-red-50 mt-1 border-t border-faint pt-3">
                 <LogOut size={14}/> Sign Out
               </button>
             )}
           </div>
         </div>
       )}
+
+      {showLogout && <LogoutModal onConfirm={confirmLogout} onCancel={() => setShowLogout(false)} />}
     </>
   )
 }

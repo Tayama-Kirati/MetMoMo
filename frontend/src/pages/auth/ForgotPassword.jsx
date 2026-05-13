@@ -11,9 +11,11 @@ export default function ForgotPassword() {
   const [passwords, setPasswords] = useState({ newPassword: '', confirmPassword: '' })
   const [loading, setLoading] = useState(false)
   const [showPw, setShowPw] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const handleEmail = async (e) => {
-    e.preventDefault(); setLoading(true)
+    e.preventDefault()
+    setLoading(true)
     const { ok, data } = await api.post(ROUTES.forgotPassword, { email })
     if (ok) { toast.success('OTP sent!'); setStep(2) }
     else toast.error(data.message || 'Email not found')
@@ -21,7 +23,8 @@ export default function ForgotPassword() {
   }
 
   const handleOtp = async (e) => {
-    e.preventDefault(); setLoading(true)
+    e.preventDefault()
+    setLoading(true)
     const { ok, data } = await api.post(ROUTES.verifyOtp, { email, otp: Number(otp) })
     if (ok) { toast.success('OTP verified!'); setStep(3) }
     else toast.error(data.message || 'Invalid OTP')
@@ -30,7 +33,10 @@ export default function ForgotPassword() {
 
   const handleReset = async (e) => {
     e.preventDefault()
-    if (passwords.newPassword !== passwords.confirmPassword) { toast.error("Passwords don't match"); return }
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      toast.error("Passwords don't match")
+      return
+    }
     setLoading(true)
     const { ok, data } = await api.post(ROUTES.resetPassword, { email, ...passwords })
     if (ok) { toast.success('Password reset!'); setStep(4) }
@@ -38,115 +44,203 @@ export default function ForgotPassword() {
     setLoading(false)
   }
 
-  const stepDots = [1, 2, 3]
-
   return (
-    <div className="min-h-screen stripe-bg flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-pink-100 flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
-        <Link to="/login" className="flex items-center gap-2 text-slate hover:text-pink text-sm font-display font-semibold mb-8 transition-colors">
+
+        {/* Back */}
+        <Link
+          to="/login"
+          className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-pink-600 transition-colors mb-5"
+        >
           ← Back to Login
         </Link>
 
+        {/* Step dots */}
         {step < 4 && (
-          <div className="flex items-center justify-center gap-2 mb-8">
-            {stepDots.map(s => (
-              <div key={s} className={`h-2 rounded-full transition-all duration-300 ${step >= s ? 'w-10 bg-pink' : 'w-5 bg-faint'}`} />
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {[1, 2, 3].map(s => (
+              <div
+                key={s}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  step >= s ? 'w-10 bg-pink-500' : 'w-5 bg-pink-200'
+                }`}
+              />
             ))}
           </div>
         )}
 
-        <div className="card p-10 shadow-float">
+        {/* Card */}
+        <div className="bg-pink-50 rounded-2xl border border-pink-200 shadow-sm px-6 sm:px-9 py-10">
+
+          {/* Step 1 — Email */}
           {step === 1 && (
             <>
               <div className="text-center mb-8">
                 <div className="w-14 h-14 rounded-2xl bg-pink-100 border border-pink-200 flex items-center justify-center mx-auto mb-4">
-                  <Mail size={26} className="text-pink" />
+                  <Mail size={26} className="text-pink-500" />
                 </div>
-                <h1 className="font-display font-black text-2xl text-ink">Forgot Password?</h1>
-                <p className="text-muted text-sm mt-2">Enter your registered email to receive an OTP</p>
+                <h1 className="font-display font-bold text-2xl text-pink-600">Forgot Password?</h1>
+                <p className="text-gray-400 text-sm mt-2">Enter your registered email to receive an OTP</p>
               </div>
               <form onSubmit={handleEmail} className="space-y-4">
                 <div>
-                  <p className="text-xs font-display font-bold text-ink uppercase tracking-wider mb-2">EMAIL ADDRESS</p>
-                  <input className="input-field rounded-xl bg-pink-50 border-pink-200 focus:border-pink"
-                    type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+                  <label className="block text-xs font-display font-bold text-pink-400 uppercase tracking-wider mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    className="w-full h-11 px-3.5 rounded-xl border border-pink-300 bg-white text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-pink-500 focus:bg-white transition"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
                 </div>
-                <button type="submit" disabled={loading} className="btn-pink w-full justify-center py-3.5 rounded-xl gap-2">
-                  {loading ? <span className="spinner" /> : null} Send OTP <ArrowRight size={15}/>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-11 bg-pink-600 hover:bg-pink-700 active:scale-95 text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  {loading ? <span className="spinner" /> : null}
+                  {loading ? 'Sending...' : 'Send OTP'}
+                  {!loading && <ArrowRight size={15} />}
                 </button>
               </form>
             </>
           )}
 
+          {/* Step 2 — OTP */}
           {step === 2 && (
             <>
               <div className="text-center mb-8">
                 <div className="w-14 h-14 rounded-2xl bg-yellow-100 border border-yellow-200 flex items-center justify-center mx-auto mb-4">
-                  <KeyRound size={26} className="text-yellow-600" />
+                  <KeyRound size={26} className="text-yellow-500" />
                 </div>
-                <h1 className="font-display font-black text-2xl text-ink">Enter OTP</h1>
-                <p className="text-muted text-sm mt-2">Sent to <strong className="text-ink">{email}</strong></p>
+                <h1 className="font-display font-bold text-2xl text-pink-600">Enter OTP</h1>
+                <p className="text-gray-400 text-sm mt-2">
+                  Sent to <strong className="text-pink-500">{email}</strong>
+                </p>
               </div>
               <form onSubmit={handleOtp} className="space-y-4">
                 <div>
-                  <p className="text-xs font-display font-bold text-ink uppercase tracking-wider mb-2">OTP CODE</p>
-                  <input className="input-field rounded-xl bg-pink-50 border-pink-200 focus:border-pink text-center text-3xl font-display font-black tracking-[0.5em] py-4"
-                    type="number" placeholder="••••" value={otp} onChange={e => setOtp(e.target.value)} required autoFocus />
+                  <label className="block text-xs font-display font-bold text-pink-400 uppercase tracking-wider mb-2">
+                    OTP Code
+                  </label>
+                  <input
+                    className="w-full h-14 px-3.5 rounded-xl border border-pink-300 bg-white text-3xl font-bold text-center tracking-[0.5em] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-pink-500 focus:bg-white transition"
+                    type="number"
+                    placeholder="••••"
+                    value={otp}
+                    onChange={e => setOtp(e.target.value)}
+                    required
+                    autoFocus
+                  />
                 </div>
-                <button type="submit" disabled={loading} className="btn-pink w-full justify-center py-3.5 rounded-xl gap-2">
-                  {loading ? <span className="spinner" /> : null} Verify OTP
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-11 bg-pink-600 hover:bg-pink-700 active:scale-95 text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  {loading ? <span className="spinner" /> : null}
+                  {loading ? 'Verifying...' : 'Verify OTP'}
                 </button>
-                <button type="button" onClick={() => setStep(1)} className="btn-ghost w-full justify-center text-sm">← Change email</button>
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="w-full h-11 border border-pink-300 text-pink-500 hover:bg-pink-100 text-sm font-medium rounded-xl transition-colors"
+                >
+                  ← Change email
+                </button>
               </form>
             </>
           )}
 
+          {/* Step 3 — New Password */}
           {step === 3 && (
             <>
               <div className="text-center mb-8">
                 <div className="w-14 h-14 rounded-2xl bg-green-100 border border-green-200 flex items-center justify-center mx-auto mb-4">
-                  <Lock size={26} className="text-green-600" />
+                  <Lock size={26} className="text-green-500" />
                 </div>
-                <h1 className="font-display font-black text-2xl text-ink">New Password</h1>
-                <p className="text-muted text-sm mt-2">Choose a strong password</p>
+                <h1 className="font-display font-bold text-2xl text-pink-600">New Password</h1>
+                <p className="text-gray-400 text-sm mt-2">Choose a strong password</p>
               </div>
               <form onSubmit={handleReset} className="space-y-4">
                 <div>
-                  <p className="text-xs font-display font-bold text-ink uppercase tracking-wider mb-2">NEW PASSWORD</p>
+                  <label className="block text-xs font-display font-bold text-pink-400 uppercase tracking-wider mb-2">
+                    New Password
+                  </label>
                   <div className="relative">
-                    <input className="input-field rounded-xl bg-pink-50 border-pink-200 focus:border-pink pr-11"
-                      type={showPw ? 'text' : 'password'} placeholder="Min. 6 characters"
-                      value={passwords.newPassword} onChange={e => setPasswords(p => ({...p, newPassword: e.target.value}))} required />
-                    <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-pink transition-colors">
-                      {showPw ? <EyeOff size={16}/> : <Eye size={16}/>}
+                    <input
+                      className="w-full h-11 px-3.5 pr-11 rounded-xl border border-pink-300 bg-white text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-pink-500 focus:bg-white transition"
+                      type={showPw ? 'text' : 'password'}
+                      placeholder="Min. 6 characters"
+                      value={passwords.newPassword}
+                      onChange={e => setPasswords(p => ({ ...p, newPassword: e.target.value }))}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-pink-300 hover:text-pink-600 transition-colors"
+                    >
+                      {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs font-display font-bold text-ink uppercase tracking-wider mb-2">CONFIRM PASSWORD</p>
-                  <input className="input-field rounded-xl bg-pink-50 border-pink-200 focus:border-pink"
-                    type="password" placeholder="Repeat password"
-                    value={passwords.confirmPassword} onChange={e => setPasswords(p => ({...p, confirmPassword: e.target.value}))} required />
+                  <label className="block text-xs font-display font-bold text-pink-400 uppercase tracking-wider mb-2">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      className="w-full h-11 px-3.5 pr-11 rounded-xl border border-pink-300 bg-white text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-pink-500 focus:bg-white transition"
+                      type={showConfirm ? 'text' : 'password'}
+                      placeholder="Repeat password"
+                      value={passwords.confirmPassword}
+                      onChange={e => setPasswords(p => ({ ...p, confirmPassword: e.target.value }))}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-pink-300 hover:text-pink-600 transition-colors"
+                    >
+                      {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
-                <button type="submit" disabled={loading} className="btn-pink w-full justify-center py-3.5 rounded-xl gap-2">
-                  {loading ? <span className="spinner" /> : <Lock size={15}/>} Reset Password
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-11 bg-pink-600 hover:bg-pink-700 active:scale-95 text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  {loading ? <span className="spinner" /> : <Lock size={15} />}
+                  {loading ? 'Resetting...' : 'Reset Password'}
                 </button>
               </form>
             </>
           )}
 
+          {/* Step 4 — Success */}
           {step === 4 && (
             <div className="text-center py-4">
               <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
                 <CheckCircle size={40} className="text-green-500" />
               </div>
-              <h1 className="font-display font-black text-2xl text-ink mb-3">Password Reset!</h1>
-              <p className="text-muted text-sm mb-8">Your password has been changed successfully.</p>
-              <Link to="/login" className="btn-pink w-full justify-center py-3.5 rounded-xl gap-2">
-                Go to Login <ArrowRight size={15}/>
+              <h1 className="font-display font-bold text-2xl text-pink-600 mb-3">Password Reset!</h1>
+              <p className="text-gray-400 text-sm mb-8">Your password has been changed successfully.</p>
+              <Link
+                to="/login"
+                className="w-full h-11 bg-pink-600 hover:bg-pink-700 active:scale-95 text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                Go to Login <ArrowRight size={15} />
               </Link>
             </div>
           )}
+
         </div>
       </div>
     </div>

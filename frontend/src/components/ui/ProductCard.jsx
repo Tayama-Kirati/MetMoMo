@@ -16,10 +16,10 @@ export default function ProductCard({ product, layout = 'grid' }) {
 
   const handleAdd = async (e) => {
     e.preventDefault(); e.stopPropagation()
-    if (!token) { toast.error('Please login first 🔐'); return }
+    if (!token) { toast.error('Please login first '); return }
     setAdding(true)
     const res = await addToCart(product._id)
-    if (res.ok) toast.success(`${product.productName} added! 🛒`)
+    if (res.ok) toast.success(`${product.productName} added!`)
     else toast.error('Could not add to cart')
     setAdding(false)
   }
@@ -27,7 +27,7 @@ export default function ProductCard({ product, layout = 'grid' }) {
   const handleWishlist = (e) => {
     e.preventDefault(); e.stopPropagation()
     toggle(product)
-    toast(wishlisted ? '💔 Removed from wishlist' : '❤️ Added to wishlist!', { icon: '' })
+    toast(wishlisted ? 'Removed from wishlist' : ' Added to wishlist!', { icon: '' })
   }
 
   if (layout === 'list') return (
@@ -35,7 +35,9 @@ export default function ProductCard({ product, layout = 'grid' }) {
       <div className="w-20 h-20 rounded-2xl overflow-hidden bg-pink-50 shrink-0">
         {product.productImage
           ? <img src={product.productImage} alt={product.productName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          : <div className="w-full h-full flex items-center justify-center text-4xl">🍜</div>}
+          : <div className="w-full h-full flex items-center justify-center text-4xl">
+            <img src="/placeholder.png" alt={product.productName} className="w-full h-full object-cover" />
+          </div>}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[10px] text-pink font-display font-bold uppercase tracking-wider mb-0.5">{product.productCategory}</p>

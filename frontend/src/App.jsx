@@ -6,6 +6,7 @@ import { WishlistProvider }          from './context/WishlistContext'
 import Layout                        from './components/layout/Layout'
 
 import Login          from './pages/auth/Login'
+import AdminLogin     from './pages/auth/AdminLogin'
 import Register       from './pages/auth/Register'
 import ForgotPassword from './pages/auth/ForgotPassword'
 
@@ -44,7 +45,7 @@ function PrivateRoute({ children }) {
 function AdminRoute({ children }) {
   const { user, token, loading } = useAuth()
   if (loading) return <PageLoader/>
-  if (!token) return <Navigate to="/login" replace />
+  if (!token) return <Navigate to="/admin/login" replace />
   if (user?.userRole !== 'admin') return <Navigate to="/" replace />
   return children
 }
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="/product/:id"     element={<ProductDetail />} />
 
         <Route path="/login"           element={<GuestRoute><Login /></GuestRoute>} />
+        <Route path="/admin/login"     element={<AdminLogin />} />
         <Route path="/register"        element={<GuestRoute><Register /></GuestRoute>} />
         <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
 

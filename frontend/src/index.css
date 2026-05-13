@@ -57,7 +57,7 @@
 
   .btn-pink-500 {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-pink text-white
-    font-bold text-sm shadow-pink-sm hover:bg-pink/90 hover:shadow-pink
+    font-bold text-sm shadow-pink-sm hover:bg-pink-600 hover:shadow-pink
     hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
     transition-all duration-200;
   }
@@ -127,7 +127,7 @@
   .section { @apply py-14; }
 
   .section-title {
-    @apply font-extrabold text-3xl text-ink tracking-tight;
+    @apply font-extrabold text-3xl text-gray-600 tracking-tight;
   }
 
   .section-sub {
@@ -136,16 +136,17 @@
 
   .page-wrap { @apply max-w-6xl mx-auto px-4 sm:px-6 py-10; }
 
-  /* STRIPES */
+  /* SOLID PINK BG */
   .stripe-bg {
     background-color: #FFF0F5;
-    background-image: repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 14px,
-      rgba(255,180,210,0.18) 14px,
-      rgba(255,180,210,0.18) 28px
-    );
+  }
+
+  .btn-pink {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-pink text-white font-bold text-sm shadow-pink-sm hover:bg-pink-600 hover:shadow-pink hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200;
+  }
+
+  .btn-soft {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-rose-light text-pink font-bold text-sm hover:bg-pink-100 hover:-translate-y-0.5 active:scale-95 transition-all duration-200;
   }
 
   /* MENU */

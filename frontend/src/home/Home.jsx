@@ -40,8 +40,8 @@ export default function Home() {
               to You
             </h1>
             <p className="text-muted text-lg leading-relaxed mb-10 max-w-md">
-              Authentic Nepali dumplings made with love, delivered hot and fresh
-              straight to your doorstep. Order now and taste the difference.
+              Authentic Nepali food items made with love, delivered hot and fresh
+              straight to your doorstep. Order now  
             </p>
             <div className="flex flex-wrap gap-4">
               <Link

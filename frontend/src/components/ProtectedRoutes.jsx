@@ -5,8 +5,23 @@ import { useAuth } from '../context/AuthContext'
 export function RoleRedirect() {
   const { user, token } = useAuth()
   if (!token) return <Navigate to="/login" replace/>
-  if (user?.userRole === 'admin') return <Navigate to="/admin" replace/>
+  if (user?.userRole === 'admin')            return <Navigate to="/admin" replace/>
+  if (user?.userRole === 'restaurant_owner') return <Navigate to="/owner" replace/>
   return <Navigate to="/" replace/>
+}
+
+/** Protect restaurant-owner-only routes */
+export function OwnerRoute({ children }) {
+  const { user, token, loading } = useAuth()
+  const location = useLocation()
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <span className="w-8 h-8 border-4 border-pink border-t-transparent rounded-full animate-spin"/>
+    </div>
+  )
+  if (!token) return <Navigate to="/login" state={{ from: location }} replace/>
+  if (user?.userRole !== 'restaurant_owner') return <Navigate to="/" replace/>
+  return children
 }
  
 /** Protect any route — optionally require admin role */
@@ -35,7 +50,9 @@ export default function ProtectedRoute({ children, admin = false }) {
 export function GuestRoute({ children }) {
   const { token, user } = useAuth()
   if (token) {
-    return <Navigate to={user?.userRole === 'admin' ? '/admin' : '/'} replace/>
+    if (user?.userRole === 'admin')            return <Navigate to="/admin" replace/>
+    if (user?.userRole === 'restaurant_owner') return <Navigate to="/owner"  replace/>
+    return <Navigate to="/" replace/>
   }
   return children
 }

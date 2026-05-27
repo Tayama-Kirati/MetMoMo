@@ -32,7 +32,7 @@ export default function Wishlist() {
       <div className="w-24 h-24 bg-pink-50 rounded-4xl flex items-center justify-center mx-auto mb-6"><Heart size={48} className="text-pink-200"/></div>
       <h2 className="font-display font-black text-2xl text-ink mb-3">Wishlist is empty</h2>
       <p className="text-muted mb-7">Save your favourite items here!</p>
-      <Link to="/menu" className="btn-pink gap-2">Browse Menu <ArrowRight size={15}/></Link>
+      <Link to="/restaurants" className="btn-pink gap-2">Browse Menu <ArrowRight size={15}/></Link>
     </div>
   )
 

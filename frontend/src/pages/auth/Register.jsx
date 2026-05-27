@@ -26,7 +26,8 @@ export default function Register() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '',
-    phoneNumber: '', password: '', confirmPassword: '', userName: ''
+    phoneNumber: '', password: '', confirmPassword: '', userName: '',
+    userRole: 'customer',
   })
   const [showPw, setShowPw] = useState(false)
   const [showConfirmPw, setShowConfirmPw] = useState(false)
@@ -49,8 +50,14 @@ export default function Register() {
       password:    form.password,
       firstName:   form.firstName,
       lastName:    form.lastName,
+      userRole:    form.userRole,
     })
-    if (ok) { toast.success('Account created! Please login.'); navigate('/login') }
+    if (ok) {
+      toast.success(form.userRole === 'restaurant_owner'
+        ? 'Restaurant owner account created! Please login.'
+        : 'Account created! Please login.')
+      navigate('/login')
+    }
     else toast.error(data?.message || 'Registration failed')
     setLoading(false)
   }
@@ -93,6 +100,29 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* Role selector */}
+            <div>
+              <p className="text-xs font-display font-bold text-pink-400 uppercase tracking-wider mb-2">I want to join as</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { value: 'customer',          icon: '🛍️', label: 'Customer',           sub: 'Order food from restaurants' },
+                  { value: 'restaurant_owner',  icon: '🏪', label: 'Restaurant Owner',   sub: 'List and manage my restaurant' },
+                ].map(({ value, icon, label, sub }) => (
+                  <button key={value} type="button"
+                    onClick={() => setForm(f => ({ ...f, userRole: value }))}
+                    className={`flex flex-col items-center gap-1 px-3 py-4 rounded-xl border-2 transition-all text-center ${
+                      form.userRole === value
+                        ? 'border-pink-500 bg-pink-50'
+                        : 'border-pink-200 bg-white hover:border-pink-400'
+                    }`}>
+                    <span className="text-2xl">{icon}</span>
+                    <span className={`text-sm font-bold ${form.userRole === value ? 'text-pink-600' : 'text-gray-700'}`}>{label}</span>
+                    <span className="text-[11px] text-gray-400 leading-tight">{sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Responsive grid: 1 col on mobile, 2 on sm+ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

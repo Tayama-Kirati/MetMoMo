@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ShoppingCart, Heart, Menu, X, ChevronDown, User, LogOut, LayoutDashboard } from 'lucide-react'
+import { ShoppingCart, Heart, Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Store } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
@@ -54,7 +54,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [showLogout, setShowLogout] = useState(false)
   const dropRef = useRef(null)
-  const isAdmin = user?.userRole === 'admin'
+  const isAdmin  = user?.userRole === 'admin'
+  const isOwner  = user?.userRole === 'restaurant_owner'
 
   useEffect(() => {
     const s = () => setScrolled(window.scrollY > 12)
@@ -88,25 +89,32 @@ export default function Navbar() {
           {/* Desktop nav */}
           <div className="hidden md:flex items-center justify-center gap-12 flex-1 ml-9">
             <NavLink to="/" label="Home" pathname={pathname} />
-            <NavLink to="/restaurants" label="Restaurants" pathname={pathname} />
-            <NavLink to="/orders" label="My Orders" pathname={pathname} />
+            {!isOwner && !isAdmin && <NavLink to="/restaurants" label="Restaurants" pathname={pathname} />}
+            {!isOwner && !isAdmin && <NavLink to="/orders" label="My Orders" pathname={pathname} />}
             {isAdmin && <NavLink to="/admin" label="Admin" pathname={pathname} />}
+            {isOwner && <NavLink to="/owner" label="Dashboard" pathname={pathname} />}
+            {isOwner && <NavLink to="/owner/menu" label="Menu Items" pathname={pathname} />}
+            {isOwner && <NavLink to="/owner/restaurant" label="Restaurant" pathname={pathname} />}
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-1 ml-auto md:ml-0">
             {user ? (
               <>
-                <Link to="/wishlist"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-slate hover:text-pink hover:bg-pink-50 relative transition-all">
-                  <Heart size={19} />
-                  {wishCount > 0 && <span className="notif-dot">{wishCount > 9 ? '9+' : wishCount}</span>}
-                </Link>
-                <Link to="/cart"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-slate hover:text-pink hover:bg-pink-50 relative transition-all">
-                  <ShoppingCart size={19} />
-                  {cartCount > 0 && <span className="notif-dot">{cartCount > 9 ? '9+' : cartCount}</span>}
-                </Link>
+                {!isOwner && !isAdmin && (
+                  <Link to="/wishlist"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-slate hover:text-pink hover:bg-pink-50 relative transition-all">
+                    <Heart size={19} />
+                    {wishCount > 0 && <span className="notif-dot">{wishCount > 9 ? '9+' : wishCount}</span>}
+                  </Link>
+                )}
+                {!isOwner && !isAdmin && (
+                  <Link to="/cart"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-slate hover:text-pink hover:bg-pink-50 relative transition-all">
+                    <ShoppingCart size={19} />
+                    {cartCount > 0 && <span className="notif-dot">{cartCount > 9 ? '9+' : cartCount}</span>}
+                  </Link>
+                )}
 
                 {/* Avatar dropdown */}
                 <div className="relative ml-1" ref={dropRef}>
@@ -126,10 +134,12 @@ export default function Navbar() {
                         <p className="text-muted text-xs truncate">{user.userEmail}</p>
                       </div>
                       {[
-                        { to: '/profile',  icon: <User size={14}/>, label: 'My Profile' },
-                        { to: '/orders',   icon: <ShoppingCart size={14}/>, label: 'My Orders' },
-                        { to: '/wishlist', icon: <Heart size={14}/>, label: 'Wishlist' },
-                        (isAdmin ? [{ to: '/admin', icon: <LayoutDashboard size={14}/>, label: 'Admin Panel' }] : []),
+                        { to: '/profile',  icon: <User size={14}/>,          label: 'My Profile' },
+                        ...(!isOwner && !isAdmin ? [{ to: '/orders',   icon: <ShoppingCart size={14}/>, label: 'My Orders' }] : []),
+                        ...(!isOwner && !isAdmin ? [{ to: '/wishlist', icon: <Heart size={14}/>,        label: 'Wishlist'   }] : []),
+                        ...(isAdmin ? [{ to: '/admin',        icon: <LayoutDashboard size={14}/>, label: 'Admin Panel'    }] : []),
+                        ...(isOwner ? [{ to: '/owner',        icon: <Store size={14}/>,          label: 'Dashboard'     }] : []),
+                        ...(isOwner ? [{ to: '/owner/menu',   icon: <Store size={14}/>,          label: 'Menu Items'    }] : []),
                       ].map(item => (
                         <Link key={item.to} to={item.to} onClick={() => setDrop(false)}
                           className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm text-ink hover:bg-pink-50 hover:text-pink transition-colors">
@@ -165,9 +175,13 @@ export default function Navbar() {
         <div className="md:hidden fixed inset-0 z-40 pt-16" onClick={() => setOpen(false)}>
           <div className="bg-white border-b border-faint shadow-float px-4 py-4 flex flex-col gap-1 animate-slide-up" onClick={e => e.stopPropagation()}>
             {[
-              { to: '/', l: 'Home' }, { to: '/restaurants', l: 'Restaurants' }, { to: '/orders', l: 'My Orders' },
-              ...(user ? [{ to: '/wishlist', l: 'Wishlist' }, { to: '/cart', l: `Cart${cartCount > 0 ? ` (${cartCount})` : ''}` }, { to: '/profile', l: 'Profile' }] : []),
+              { to: '/', l: 'Home' },
+              ...(!isOwner && !isAdmin ? [{ to: '/restaurants', l: 'Restaurants' }] : []),
+              ...(!isOwner && !isAdmin ? [{ to: '/orders', l: 'My Orders' }] : []),
+              ...(!isOwner && !isAdmin && user ? [{ to: '/wishlist', l: 'Wishlist' }, { to: '/cart', l: `Cart${cartCount > 0 ? ` (${cartCount})` : ''}` }] : []),
+              ...(user ? [{ to: '/profile', l: 'Profile' }] : []),
               ...(isAdmin ? [{ to: '/admin', l: 'Admin Dashboard' }] : []),
+              ...(isOwner ? [{ to: '/owner', l: 'Dashboard' }, { to: '/owner/menu', l: 'Menu Items' }, { to: '/owner/restaurant', l: 'My Restaurant' }] : []),
             ].map(({ to, l }) => (
               <Link key={to} to={to}
                 className={`px-4 py-3 rounded-2xl font-display font-semibold text-sm transition-colors ${pathname === to ? 'bg-pink-50 text-pink' : 'text-ink hover:bg-pink-50 hover:text-pink'}`}>

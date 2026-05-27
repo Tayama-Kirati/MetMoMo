@@ -29,6 +29,7 @@ const cartRoute        = require("./router/user/cartRoute");
 const orderRoute       = require("./router/user/orderRoute");
 const paymentRoute     = require("./router/user/paymentRoute");
 const restaurantRouter  = require("./router/admin/restaurantRouter");
+const ownerRouter       = require("./router/owner/ownerRouter");
  
 app.get("/", (req, res) => {
   res.status(200).json({ message: "Metmomo API is live!", status: "ok" });
@@ -44,6 +45,7 @@ app.use("/api/cart",     cartRoute);
 app.use("/api/orders",   orderRoute);
 app.use("/api/payment",  paymentRoute);
 app.use("/api/restaurants", restaurantRouter);
+app.use("/api/owner",       ownerRouter);
  
 app.use((err, req, res, next) => {
   console.error(err.message);

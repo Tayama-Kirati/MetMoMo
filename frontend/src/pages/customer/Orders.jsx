@@ -221,7 +221,7 @@ function OrderCard({ order }) {
                 {cancelling ? <span className="spinner-pink" /> : <XCircle size={13}/>} Cancel Order
               </button>
             )}
-            <Link to="/menu" className="btn-soft text-sm py-2 px-4 rounded-xl gap-1">
+            <Link to="/restaurants" className="btn-soft text-sm py-2 px-4 rounded-xl gap-1">
               <RefreshCw size={13}/> Reorder
             </Link>
           </div>
@@ -274,7 +274,7 @@ export default function Orders() {
               <div className="text-6xl mb-4">📦</div>
               <h3 className="font-display font-bold text-xl text-ink mb-2">No orders yet</h3>
               <p className="text-muted mb-6">Place your first order!</p>
-              <Link to="/menu" className="btn-pink">Browse Menu</Link>
+              <Link to="/restaurants" className="btn-pink">Browse Menu</Link>
             </div>
           ) : (
             <div className="space-y-4">

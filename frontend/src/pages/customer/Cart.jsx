@@ -53,7 +53,7 @@ export default function Cart() {
       <div className="w-24 h-24 bg-pink-50 rounded-4xl flex items-center justify-center text-5xl mx-auto mb-6">🛒</div>
       <h2 className="font-display font-black text-2xl text-ink mb-3">Your cart is empty</h2>
       <p className="text-muted mb-7">Add some delicious momos to get started!</p>
-      <Link to="/menu" className="btn-pink px-8 py-3.5 gap-2">Browse Menu <ArrowRight size={16}/></Link>
+      <Link to="/restaurants" className="btn-pink px-8 py-3.5 gap-2">Browse Menu <ArrowRight size={16}/></Link>
     </div>
   )
 
@@ -67,7 +67,7 @@ export default function Cart() {
       <p className="text-muted mb-8">Estimated delivery: <strong className="text-ink">25–35 minutes</strong></p>
       <div className="flex gap-3 justify-center">
         <Link to="/orders" className="btn-pink gap-2 px-7 py-3.5">Track Order <ChevronRight size={15}/></Link>
-        <Link to="/menu" className="btn-outline gap-2 px-7 py-3.5">Order More</Link>
+        <Link to="/restaurants" className="btn-outline gap-2 px-7 py-3.5">Order More</Link>
       </div>
     </div>
   )

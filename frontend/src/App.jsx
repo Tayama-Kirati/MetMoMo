@@ -9,7 +9,12 @@ import Login          from './pages/auth/Login'
 import AdminLogin     from './pages/auth/AdminLogin'
 import Register       from './pages/auth/Register'
 import ForgotPassword from './pages/auth/ForgotPassword'
-import ProtectedRoute,{GuestRoute, RoleRedirect } from './components/ProtectedRoutes'
+import ProtectedRoute, { GuestRoute, RoleRedirect, OwnerRoute } from './components/ProtectedRoutes'
+import OwnerLayout    from './components/layout/OwnerLayout'
+import OwnerDashboard from './pages/owner/OwnerDashboard'
+import OwnerRestaurant from './pages/owner/OwnerRestaurant'
+import OwnerMenu      from './pages/owner/OwnerMenu'
+import OwnerItemForm  from './pages/owner/OwnerItemForm'
 
 import Home           from './pages/customer/Home'
 import Restaurants    from './pages/customer/Restaurants'
@@ -81,6 +86,12 @@ function AppRoutes() {
         <Route path="/orders"   element={<PrivateRoute><Orders /></PrivateRoute>} />
         <Route path="/profile"  element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
+
+        <Route path="/owner" element={<OwnerRoute><OwnerLayout><OwnerDashboard /></OwnerLayout></OwnerRoute>} />
+        <Route path="/owner/restaurant" element={<OwnerRoute><OwnerLayout><OwnerRestaurant /></OwnerLayout></OwnerRoute>} />
+        <Route path="/owner/menu"       element={<OwnerRoute><OwnerLayout><OwnerMenu /></OwnerLayout></OwnerRoute>} />
+        <Route path="/owner/add-item"   element={<OwnerRoute><OwnerLayout><OwnerItemForm /></OwnerLayout></OwnerRoute>} />
+        <Route path="/owner/edit-item/:id" element={<OwnerRoute><OwnerLayout><OwnerItemForm /></OwnerLayout></OwnerRoute>} />
 
         <Route path="/admin"               element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/products"      element={<AdminRoute><AdminProducts /></AdminRoute>} />

@@ -45,12 +45,12 @@ export default function Home() {
             </p>
             <div className="flex flex-wrap gap-4">
               <Link
-                to="/menu"
+                to="/restaurants"
                 className="btn-primary text-base px-7 py-3.5 gap-2"
               >
                 Order Now <ArrowRight size={18} />
               </Link>
-              <Link to="/menu" className="btn-secondary text-base px-7 py-3.5">
+              <Link to="/restaurants" className="btn-secondary text-base px-7 py-3.5">
                 View Menu
               </Link>
             </div>
@@ -167,7 +167,7 @@ export default function Home() {
             <div className="badge-orange mb-3">Popular Items</div>
             <h2 className="section-title">Today's Picks</h2>
           </div>
-          <Link to="/menu" className="btn-ghost gap-1 text-sm">
+          <Link to="/restaurants" className="btn-ghost gap-1 text-sm">
             View all <ArrowRight size={15} />
           </Link>
         </div>
@@ -214,7 +214,7 @@ export default function Home() {
             </p>
           </div>
           <Link
-            to="/menu"
+            to="/restaurants"
             className="bg-white text-orange font-display font-bold text-base px-8 py-4 rounded-xl hover:shadow-orange hover:scale-105 transition-all duration-200 shrink-0 flex items-center gap-2"
           >
             Explore Menu <ArrowRight size={18} />

@@ -47,14 +47,19 @@ function Sidebar({ active, setTab }) {
     ? ((user.firstName?.[0] || '') + (user.lastName?.[0] || '') || user.userName?.[0] || 'U').toUpperCase()
     : 'U'
 
+  const isAdmin = user?.userRole === 'admin'
+  const isOwner = user?.userRole === 'restaurant_owner'
+  const isCustomer = !isAdmin && !isOwner
+
   const links = [
-    { k: 'basic',       icon: <User size={15}/>,      label: 'Basic Info' },
-    { k: 'address',     icon: <MapPin size={15}/>,    label: 'Address' },
-    { k: 'preferences', icon: <Settings size={15}/>,  label: 'Preferences' },
-    { k: 'security',    icon: <Lock size={15}/>,       label: 'Security' },
-    { k: 'account',     icon: <Shield size={15}/>,     label: 'Account Info' },
-    { k: 'reviews',     icon: <Star size={15}/>,       label: 'My Reviews' },
-    { k: 'orders',      icon: <ShoppingBag size={15}/>, label: 'My Orders', href: '/orders' },
+    { k: 'basic',       icon: <User size={15}/>,          label: 'Basic Info' },
+    ...(isCustomer ? [{ k: 'address',     icon: <MapPin size={15}/>,    label: 'Address' }] : []),
+    ...(isCustomer ? [{ k: 'preferences', icon: <Settings size={15}/>,  label: 'Preferences' }] : []),
+    { k: 'security',    icon: <Lock size={15}/>,           label: 'Security' },
+    { k: 'account',     icon: <Shield size={15}/>,         label: 'Account Info' },
+    ...(isCustomer ? [{ k: 'reviews', icon: <Star size={15}/>,        label: 'My Reviews' }] : []),
+    ...(isCustomer ? [{ k: 'orders',  icon: <ShoppingBag size={15}/>, label: 'My Orders', href: '/orders' }] : []),
+    ...(isOwner    ? [{ k: 'reviews', icon: <Star size={15}/>,        label: 'Food Reviews' }] : []),
   ]
 
   return (
@@ -135,6 +140,10 @@ export default function Profile() {
   const [tab, setTab]   = useState('basic')
   const [saving, setSaving] = useState(false)
 
+  const isAdmin    = user?.userRole === 'admin'
+  const isOwner    = user?.userRole === 'restaurant_owner'
+  const isCustomer = !isAdmin && !isOwner
+
   // ── Form state ──
   const [pf, setPf] = useState({
     firstName: '', lastName: '', userName: '', userEmail: '', userPhoneNumber: '',
@@ -178,10 +187,11 @@ export default function Profile() {
   useEffect(() => {
     if (tab !== 'reviews') return
     setLoadingR(true)
-    api.get(ROUTES.myReviews)
+    const url = isOwner ? '/owner/reviews' : ROUTES.myReviews
+    api.get(url)
       .then(({ ok, data }) => { if (ok) setReviews(data.data || []) })
       .finally(() => setLoadingR(false))
-  }, [tab])
+  }, [tab, isOwner])
 
   const set  = (k) => (e) => setPf(f => ({ ...f, [k]: e.target.value }))
   const setPref = (k) => (val) => setPf(f => ({ ...f, preferences: { ...f.preferences, [k]: val } }))
@@ -233,8 +243,12 @@ export default function Profile() {
           {/* Mobile tab row */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-1 md:hidden">
             {[
-              { k:'basic',l:'Basic' },{ k:'address',l:'Address' },{ k:'preferences',l:'Prefs' },
-              { k:'security',l:'Security' },{ k:'account',l:'Account' },{ k:'reviews',l:'Reviews' },
+              { k:'basic',    l:'Basic' },
+              ...(isCustomer ? [{ k:'address',     l:'Address' }, { k:'preferences', l:'Prefs' }] : []),
+              { k:'security', l:'Security' },
+              { k:'account',  l:'Account' },
+              ...(isCustomer ? [{ k:'reviews', l:'Reviews' }] : []),
+              ...(isOwner    ? [{ k:'reviews', l:'Reviews' }] : []),
             ].map(t => (
               <button key={t.k} onClick={() => setTab(t.k)}
                 className={`chip whitespace-nowrap ${tab===t.k?'chip-active':'chip-idle'}`}>{t.l}</button>
@@ -447,8 +461,8 @@ export default function Profile() {
             <div className="space-y-5">
               <SectionHead title="Account Information" sub="Read-only system details about your account" />
               <div className="card p-6 space-y-3">
-                <InfoRow label="User ID"       value={user?._id}                     mono />
-                <InfoRow label="Role"          value={user?.userRole}                badge />
+                <InfoRow label="User ID"       value={user?._id}                       mono />
+                <InfoRow label="Role"          value={user?.userRole}                  badge />
                 <InfoRow label="Verified"      value={user?.isVerified ? 'Yes' : 'No'} />
                 <InfoRow label="Blocked"       value={user?.isBlocked  ? 'Yes' : 'No'} />
                 <InfoRow label="Last Login"    value={fmt(user?.lastLogin)} />
@@ -456,27 +470,28 @@ export default function Profile() {
                 <InfoRow label="Last Updated"  value={fmt(user?.updatedAt)} />
               </div>
 
-              <div className="card p-6 space-y-2">
-                <h3 className="font-display font-bold text-ink mb-3">User Features</h3>
-                {[
-                  '✓ Multiple saved addresses',
-                  '✓ Default delivery address',
-                  '✓ Wishlist / Favourites',
-                  '✓ Full order history',
-                  '✓ Profile editing',
-                  '✓ Password change',
-                  '✓ Forgot password flow',
-                  '○ Saved payment methods (coming soon)',
-                  '○ Email verification (coming soon)',
-                ].map(f => (
-                  <p key={f} className={`text-sm ${f.startsWith('✓') ? 'text-ink' : 'text-muted'}`}>{f}</p>
-                ))}
-              </div>
+              {isCustomer && (
+                <div className="card p-6 space-y-2">
+                  <h3 className="font-display font-bold text-ink mb-3">Account Features</h3>
+                  {[
+                    '✓ Multiple saved addresses',
+                    '✓ Wishlist / Favourites',
+                    '✓ Full order history',
+                    '✓ Profile editing',
+                    '✓ Password change',
+                    '✓ Forgot password flow',
+                    '○ Saved payment methods (coming soon)',
+                    '○ Email verification (coming soon)',
+                  ].map(f => (
+                    <p key={f} className={`text-sm ${f.startsWith('✓') ? 'text-ink' : 'text-muted'}`}>{f}</p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* ── REVIEWS ── */}
-          {tab === 'reviews' && (
+          {tab === 'reviews' && !isOwner && (
             <div className="space-y-4">
               <SectionHead title="My Reviews" sub="Reviews you've left on orders" />
               {loadingR ? (
@@ -485,7 +500,7 @@ export default function Profile() {
                 <div className="card p-10 text-center text-muted">
                   <Star size={36} className="mx-auto mb-3 text-gray-200"/>
                   <p className="font-display font-semibold">No reviews yet</p>
-                  <Link to="/menu" className="btn-pink mt-4 text-sm inline-flex">Browse Menu</Link>
+                  <Link to="/restaurants" className="btn-pink mt-4 text-sm inline-flex">Browse Menu</Link>
                 </div>
               ) : reviews.map(r => (
                 <div key={r._id} className="card p-5 flex items-start gap-4">
@@ -510,6 +525,49 @@ export default function Profile() {
                       ? <span className="w-3.5 h-3.5 border border-red-400 border-t-transparent rounded-full animate-spin"/>
                       : <Trash2 size={13}/>}
                   </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── OWNER: FOOD REVIEWS ── */}
+          {tab === 'reviews' && isOwner && (
+            <div className="space-y-4">
+              <SectionHead title="Food Reviews" sub="Reviews customers have left on your menu items" />
+              {loadingR ? (
+                <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="skeleton h-24 rounded-3xl"/>)}</div>
+              ) : reviews.length === 0 ? (
+                <div className="card p-10 text-center text-muted">
+                  <Star size={36} className="mx-auto mb-3 text-gray-200"/>
+                  <p className="font-display font-semibold">No reviews yet</p>
+                  <p className="text-sm mt-1">Reviews customers leave on your dishes will appear here</p>
+                </div>
+              ) : reviews.map(r => (
+                <div key={r._id} className="card p-5 flex items-start gap-4">
+                  {/* Product image */}
+                  {r.productId?.productImage ? (
+                    <img src={r.productId.productImage} alt={r.productId.productName}
+                      className="w-14 h-14 rounded-2xl object-cover shrink-0"/>
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl bg-pink-50 flex items-center justify-center text-2xl shrink-0">🍜</div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-bold text-ink text-sm truncate">
+                      {r.productId?.productName || 'Unknown item'}
+                    </p>
+                    <p className="text-muted text-xs mb-1.5">
+                      by {r.userId?.userName || 'Customer'}
+                      {r.userId?.userEmail && <span className="ml-1">· {r.userId.userEmail}</span>}
+                    </p>
+                    <div className="flex items-center gap-0.5 mb-1.5">
+                      {[1,2,3,4,5].map(i => (
+                        <span key={i} className={`text-sm ${i <= r.rating ? 'text-yellow-400' : 'text-gray-200'}`}>★</span>
+                      ))}
+                      <span className="text-muted text-xs ml-1">{r.rating}/5</span>
+                    </div>
+                    <p className="text-slate text-sm leading-relaxed">"{r.message}"</p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -179,7 +179,7 @@ export default function RestaurantMenu() {
     <div className="text-center py-24">
       <p className="text-5xl mb-4">🍽️</p>
       <p className="font-display font-bold text-xl text-ink mb-2">Restaurant not found</p>
-      <Link to="/menu" className="btn-pink mt-4 inline-flex">Browse Restaurants</Link>
+      <Link to="/restaurants" className="btn-pink mt-4 inline-flex">Browse Restaurants</Link>
     </div>
   )
 
@@ -202,7 +202,7 @@ export default function RestaurantMenu() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"/>
 
         {/* Back button */}
-        <Link to="/menu"
+        <Link to="/restaurants"
           className="absolute top-4 left-4 flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white px-3.5 py-2 rounded-full text-sm font-semibold hover:bg-white/30 transition-colors border border-white/30">
           <ChevronLeft size={16}/> Restaurants
         </Link>

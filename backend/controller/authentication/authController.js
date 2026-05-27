@@ -6,7 +6,7 @@ const catchAsync = require("../../services/catchAsync");
 
 // POST /api/auth/register
 exports.registerUser = catchAsync(async (req, res) => {
-  const { email, userName, phoneNumber, password, firstName, lastName } = req.body;
+  const { email, userName, phoneNumber, password, firstName, lastName, userRole } = req.body;
 
   if (!email || !userName || !phoneNumber || !password) {
     return res.status(400).json({ message: "Please provide email, password, name and phoneNumber" });
@@ -17,6 +17,10 @@ exports.registerUser = catchAsync(async (req, res) => {
     return res.status(400).json({ message: "User with that email is already registered" });
   }
 
+  // Only allow public registration for customer or restaurant_owner
+  const allowedRoles = ['customer', 'restaurant_owner'];
+  const role = allowedRoles.includes(userRole) ? userRole : 'customer';
+
   await User.create({
     userName,
     firstName: firstName || '',
@@ -24,6 +28,7 @@ exports.registerUser = catchAsync(async (req, res) => {
     userPhoneNumber: String(phoneNumber),
     userEmail: email,
     userPassword: bcrypt.hashSync(password, 10),
+    userRole: role,
   });
 
   return res.status(201).json({ message: "User registered successfully" });

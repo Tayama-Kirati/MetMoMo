@@ -79,6 +79,11 @@ const restaurantSchema = new Schema({
     district: { type: String, default: '' },
     area:     { type: String, default: '' },
   },
+  owner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
 }, { timestamps: true })
 
 const Restaurants = mongoose.model('Restaurant', restaurantSchema)

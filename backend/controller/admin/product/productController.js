@@ -40,7 +40,17 @@ exports.deleteProduct = catchAsync(async (req, res) => {
   return res.status(200).json({ message: 'Product deleted successfully' })
 })
 
-// PATCH /api/products/product/:id
+// PATCH /api/products/:id/status  — quick availability toggle
+exports.toggleProductStatus = catchAsync(async (req, res) => {
+  const product = await Product.findById(req.params.id)
+  if (!product) return res.status(404).json({ message: 'Product not found' })
+
+  product.productStatus = product.productStatus === 'available' ? 'unavailable' : 'available'
+  await product.save()
+  res.status(200).json({ message: 'Status updated', data: product })
+})
+
+// PATCH /api/products/:id
 exports.editProduct = catchAsync(async (req, res) => {
   const { id } = req.params
   const {

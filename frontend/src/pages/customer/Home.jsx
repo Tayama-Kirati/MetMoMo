@@ -156,7 +156,7 @@ export default function Home() {
               <h2 className="section-title">Browse by Category</h2>
               <p className="section-sub">What are you craving today?</p>
             </div>
-            <Link to="/menu" className="btn-soft gap-1 text-sm">See all <ArrowRight size={14}/></Link>
+            <Link to="/restaurants" className="btn-soft gap-1 text-sm">See all <ArrowRight size={14}/></Link>
           </div>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
             {FOOD_CATEGORIES.map(cat => (
@@ -179,7 +179,7 @@ export default function Home() {
               <h2 className="section-title">Top Picks For You</h2>
               <p className="section-sub">Handpicked fan favourites this week</p>
             </div>
-            <Link to="/menu" className="btn-soft gap-1 text-sm">View menu <ArrowRight size={14}/></Link>
+            <Link to="/restaurants" className="btn-soft gap-1 text-sm">View menu <ArrowRight size={14}/></Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {TOP_PICKS.map((item, i) => (
@@ -210,7 +210,7 @@ export default function Home() {
               <h2 className="section-title">Top Restaurants</h2>
               <p className="section-sub">Delivering to you right now</p>
             </div>
-            <Link to="/menu" className="btn-pink text-sm gap-1">View all <ArrowRight size={14}/></Link>
+            <Link to="/restaurants" className="btn-pink text-sm gap-1">View all <ArrowRight size={14}/></Link>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {displayRestaurants.map(r => (
@@ -253,11 +253,11 @@ export default function Home() {
                 <h2 className="section-title">Most Loved Items</h2>
                 <p className="section-sub">Fresh from our partner restaurants</p>
               </div>
-              <Link to="/products" className="btn-soft gap-1 text-sm">Full menu <ArrowRight size={14}/></Link>
+              <Link to="/restaurants" className="btn-soft gap-1 text-sm">Full menu <ArrowRight size={14}/></Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
               {featured.map((p, i) => (
-                <Link key={p._id || i} to={p._id ? `/products/${p._id}` : '/products'} className="card-hover group overflow-hidden">
+                <Link key={p._id || i} to={p._id ? `/product/${p._id}` : '/restaurants'} className="card-hover group overflow-hidden">
                   <div className="relative aspect-[4/3] overflow-hidden bg-pink-50">
                     {(p.productImage || p.img) ? (
                       <img src={p.productImage || p.img} alt={p.productName || p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -291,7 +291,7 @@ export default function Home() {
                 <span className="font-display font-black text-4xl text-pink">OFF</span>
               </div>
               <p className="text-white/70 mb-6">Use code <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-lg">METMOMO20</span> at checkout</p>
-              <Link to="/menu" className="btn-pink gap-2 inline-flex">ORDER NOW <ArrowRight size={15}/></Link>
+              <Link to="/restaurants" className="btn-pink gap-2 inline-flex">ORDER NOW <ArrowRight size={15}/></Link>
             </div>
             <div className="relative z-10 hidden md:block">
               <div className="w-52 h-52 rounded-full overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)] border-4 border-pink/30">

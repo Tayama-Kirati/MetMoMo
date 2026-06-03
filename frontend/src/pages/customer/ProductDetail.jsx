@@ -79,7 +79,9 @@ export default function ProductDetail() {
     <div className="page-wrap">
       <nav className="flex items-center gap-2 text-sm text-muted mb-8">
         <Link to="/" className="hover:text-pink transition-colors">Home</Link><span>/</span>
-        <Link to="/restaurants" className="hover:text-pink transition-colors">Menu</Link><span>/</span>
+        <Link to={`/restaurants/${product.restaurant?._id}`} className="hover:text-pink transition-colors">
+          {product.restaurant?.name || 'Menu'}
+        </Link><span>/</span>
         <span className="text-ink font-semibold truncate">{product.productName}</span>
       </nav>
 

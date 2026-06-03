@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Search, ArrowRight, Star, Clock, Truck, Zap, MapPin, ShoppingBag } from 'lucide-react'
 import { api, ROUTES } from '../../services/api'
@@ -12,12 +12,14 @@ const FOOD_CATEGORIES = [
   { name: 'Ramen',  img: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&h=200&fit=crop' },
 ]
 
-const TOP_PICKS = [
-  { name: 'Buff Momo',      desc: 'Steamed dumplings with spicy tomato sauce', price: 180, tag: 'Bestseller', tagBg: 'bg-pink-500',   img: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=400&h=280&fit=crop' },
-  { name: 'Jhol Momo',      desc: 'Momo soaked in aromatic sesame tomato broth', price: 250, tag: 'New',       tagBg: 'bg-green-500', img: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&h=280&fit=crop' },
-  { name: 'Chicken Sekuwa', desc: 'Grilled marinated chicken skewers with chutney', price: 280, tag: 'Trending', tagBg: 'bg-orange-500', img: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=280&fit=crop' },
-  { name: 'Veg Momo',       desc: 'Pan-fried veggie dumplings with ginger dip', price: 160, tag: 'Popular',   tagBg: 'bg-purple-500', img: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400&h=280&fit=crop' },
-]
+const TAG_COLORS = {
+  'Bestseller':    'bg-pink-500',
+  'Trending':      'bg-orange-500',
+  'Fan Favourite': 'bg-purple-500',
+  'Hot Pick':      'bg-red-500',
+  'Must Try':      'bg-blue-500',
+  'Popular':       'bg-green-500',
+}
 
 const STATIC_RESTAURANTS = [
   { _id: 'r1', name: 'Momo Palace',     description: 'Authentic Nepali dumplings & more', rating: 4.8, deliveryTime: 25, deliveryFee: 0,   isFeatured: true,  coverImage: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=400&h=220&fit=crop' },
@@ -29,20 +31,40 @@ const STATIC_RESTAURANTS = [
 export default function Home() {
   const [products, setProducts] = useState([])
   const [restaurants, setRestaurants] = useState([])
+  const [topPicks, setTopPicks] = useState([])
+  const [topPicksLoading, setTopPicksLoading] = useState(true)
   const [searchQ, setSearchQ] = useState('')
+  const [showDropdown, setShowDropdown] = useState(false)
+  const searchRef = useRef(null)
   const navigate = useNavigate()
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e) => { if (searchRef.current && !searchRef.current.contains(e.target)) setShowDropdown(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   useEffect(() => {
     Promise.all([api.get(ROUTES.products), api.get(ROUTES.restaurants)]).then(([p, r]) => {
       if (p.ok) setProducts(p.data.data || [])
       if (r.ok) setRestaurants(r.data.data || [])
     })
+    api.get('/products/top-picks').then(({ ok, data }) => {
+      if (ok) setTopPicks(data.data || [])
+      setTopPicksLoading(false)
+    })
   }, [])
 
   const handleSearch = (e) => {
     e.preventDefault()
-    if (searchQ.trim()) navigate(`/menu?q=${encodeURIComponent(searchQ.trim())}`)
+    const first = searchResults[0]
+    if (first) { setShowDropdown(false); setSearchQ(''); navigate(`/restaurants/${first._id}`) }
   }
+
+  const searchResults = searchQ.trim().length > 0
+    ? restaurants.filter(r => r.name.toLowerCase().includes(searchQ.toLowerCase())).slice(0, 6)
+    : []
 
   const featured = products.filter(p => p.productStatus === 'available' || !p.productStatus).slice(0, 8)
   const displayRestaurants = restaurants.length > 0 ? restaurants.slice(0, 4) : STATIC_RESTAURANTS
@@ -71,15 +93,46 @@ export default function Home() {
               Order your favourite Nepali dishes and international cuisine from top restaurants. Fresh, hot, and right at your doorstep.
             </p>
 
-            <form onSubmit={handleSearch} className="flex gap-2 max-w-md mb-6">
+            <form onSubmit={handleSearch} className="flex gap-2 max-w-md mb-6" ref={searchRef}>
               <div className="relative flex-1">
-                <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
                 <input
                   className="input-field pl-11 py-3.5 rounded-full"
-                  placeholder="Search for food or restaurants..."
+                  placeholder="Search restaurants..."
                   value={searchQ}
-                  onChange={e => setSearchQ(e.target.value)}
+                  onChange={e => { setSearchQ(e.target.value); setShowDropdown(true) }}
+                  onFocus={() => { if (searchQ.trim()) setShowDropdown(true) }}
+                  autoComplete="off"
                 />
+                {/* Live dropdown */}
+                {showDropdown && searchQ.trim().length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-pink-100 overflow-hidden z-50">
+                    {searchResults.length > 0 ? (
+                      searchResults.map(r => (
+                        <button
+                          key={r._id}
+                          type="button"
+                          onClick={() => { setShowDropdown(false); setSearchQ(''); navigate(`/restaurants/${r._id}`) }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-pink-50 transition-colors text-left"
+                        >
+                          <span className="text-xl shrink-0">{r.emoji || '🏪'}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-display font-bold text-ink text-sm truncate">{r.name}</p>
+                            <p className="text-muted text-xs truncate">{r.description}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs text-muted flex items-center gap-1"><Clock size={10}/> {r.deliveryTime} min</p>
+                            <p className={`text-xs font-semibold ${r.deliveryFee === 0 ? 'text-green-600' : 'text-muted'}`}>
+                              {r.deliveryFee === 0 ? 'Free delivery' : `NPR ${r.deliveryFee}`}
+                            </p>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-4 text-center text-muted text-sm">No restaurants found for "{searchQ}"</div>
+                    )}
+                  </div>
+                )}
               </div>
               <button type="submit" className="btn-pink px-6 py-3.5 rounded-full shrink-0">
                 Search
@@ -160,7 +213,7 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
             {FOOD_CATEGORIES.map(cat => (
-              <Link key={cat.name} to={`/menu?q=${cat.name}`} className="flex flex-col items-center group cursor-pointer">
+              <Link key={cat.name} to={`/category/${encodeURIComponent(cat.name)}`} className="flex flex-col items-center group cursor-pointer">
                 <div className="w-full aspect-square rounded-3xl overflow-hidden bg-white border-2 border-transparent group-hover:border-pink-400 transition-all duration-200 shadow-card group-hover:shadow-[0_6px_18px_rgba(255,45,120,0.25)] mb-2.5">
                   <img src={cat.img} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                 </div>
@@ -171,34 +224,50 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── TOP PICKS ── */}
+      {/* ── TOP PICKS — AI powered ── */}
       <section className="section bg-white">
         <div className="wrap">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="section-title">Top Picks For You</h2>
-              <p className="section-sub">Handpicked fan favourites this week</p>
+              <p className="section-sub flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 bg-pink-100 text-pink-600 text-[11px] font-bold px-2 py-0.5 rounded-full">✦ AI</span>
+                Most ordered · described by AI
+              </p>
             </div>
             <Link to="/restaurants" className="btn-soft gap-1 text-sm">View menu <ArrowRight size={14}/></Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {TOP_PICKS.map((item, i) => (
-              <Link key={i} to={`/menu?q=${encodeURIComponent(item.name)}`} className="card-hover group overflow-hidden">
-                <div className="relative h-44 overflow-hidden">
-                  <img src={item.img} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                  <span className={`absolute top-3 left-3 ${item.tagBg} text-white text-xs font-bold px-2.5 py-1 rounded-full shadow`}>{item.tag}</span>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-display font-bold text-ink text-base mb-1">{item.name}</h3>
-                  <p className="text-slate text-xs leading-snug mb-3 line-clamp-2">{item.desc}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="font-display font-extrabold text-pink text-base">NPR {item.price}</span>
-                    <span className="text-xs font-semibold text-pink bg-pink-50 px-3 py-1 rounded-full border border-pink-100">Order now</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {topPicksLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {[1,2,3,4].map(i => <div key={i} className="skeleton h-64 rounded-3xl" />)}
+            </div>
+          ) : topPicks.length === 0 ? null : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {topPicks.map((item) => {
+                const tagColor = TAG_COLORS[item.aiTag] || 'bg-pink-500'
+                return (
+                  <Link key={item._id} to={`/product/${item._id}`} className="card-hover group overflow-hidden">
+                    <div className="relative h-44 overflow-hidden">
+                      {item.productImage ? (
+                        <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-100 to-pink-200 text-5xl">🍽️</div>
+                      )}
+                      <span className={`absolute top-3 left-3 ${tagColor} text-white text-xs font-bold px-2.5 py-1 rounded-full shadow`}>{item.aiTag}</span>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-display font-bold text-ink text-base mb-1">{item.productName}</h3>
+                      <p className="text-slate text-xs leading-snug mb-3 line-clamp-2">{item.aiDesc || item.productDescription}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="font-display font-extrabold text-pink text-base">NPR {item.productPrice?.toLocaleString()}</span>
+                        <span className="text-xs font-semibold text-pink bg-pink-50 px-3 py-1 rounded-full border border-pink-100">Order now</span>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
       </section>
 

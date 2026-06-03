@@ -12,11 +12,13 @@ import ForgotPassword from './pages/auth/ForgotPassword'
 import ProtectedRoute, { GuestRoute, RoleRedirect, OwnerRoute } from './components/ProtectedRoutes'
 import OwnerLayout    from './components/layout/OwnerLayout'
 import OwnerDashboard from './pages/owner/OwnerDashboard'
+import OwnerOrders    from './pages/owner/OwnerOrders'
 import OwnerRestaurant from './pages/owner/OwnerRestaurant'
 import OwnerMenu      from './pages/owner/OwnerMenu'
 import OwnerItemForm  from './pages/owner/OwnerItemForm'
 
 import Home           from './pages/customer/Home'
+import CategoryPage   from './pages/customer/CategoryPage'
 import Restaurants    from './pages/customer/Restaurants'
 import RestaurantMenu from './pages/customer/RestaurantMenu'
 import ProductDetail  from './pages/customer/ProductDetail'
@@ -68,12 +70,20 @@ function AdminRoute({ children }) {
 function AppRoutes() {
   return (
     <Layout>
-       
+      <Toaster position="top-right" gutter={8}
+        toastOptions={{
+          duration: 3000,
+          style: { background:'#2D1B25', color:'#FFF9FB', borderRadius:'20px', fontFamily:'Plus Jakarta Sans, sans-serif', fontSize:'14px', fontWeight:'500', border:'1px solid rgba(255,45,120,0.2)', padding:'14px 18px' },
+          success: { iconTheme: { primary:'#FF2D78', secondary:'#fff' } },
+          error:   { iconTheme: { primary:'#EF4444', secondary:'#fff' } },
+        }}
+      />
       <Routes>
         <Route path="/"                element={<Home />} />
         <Route path="restaurants"     element={<Restaurants />} />
         <Route path="/redirect" element={<RoleRedirect/>}/>
 
+        <Route path="/category/:name"   element={<CategoryPage />} />
         <Route path="/restaurants/:id" element={<RestaurantMenu />} />
         <Route path="/product/:id"     element={<ProductDetail />} />
 
@@ -88,6 +98,7 @@ function AppRoutes() {
         <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
 
         <Route path="/owner" element={<OwnerRoute><OwnerLayout><OwnerDashboard /></OwnerLayout></OwnerRoute>} />
+        <Route path="/owner/orders" element={<OwnerRoute><OwnerLayout><OwnerOrders /></OwnerLayout></OwnerRoute>} />
         <Route path="/owner/restaurant" element={<OwnerRoute><OwnerLayout><OwnerRestaurant /></OwnerLayout></OwnerRoute>} />
         <Route path="/owner/menu"       element={<OwnerRoute><OwnerLayout><OwnerMenu /></OwnerLayout></OwnerRoute>} />
         <Route path="/owner/add-item"   element={<OwnerRoute><OwnerLayout><OwnerItemForm /></OwnerLayout></OwnerRoute>} />
@@ -120,16 +131,7 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <WishlistProvider>
-          <AppRoutes>
-          <Toaster position="top-right" gutter={8}
-            toastOptions={{
-              duration: 3000,
-              style: { background:'#2D1B25', color:'#FFF9FB', borderRadius:'20px', fontFamily:'Plus Jakarta Sans, sans-serif', fontSize:'14px', fontWeight:'500', border:'1px solid rgba(255,45,120,0.2)', padding:'14px 18px' },
-              success: { iconTheme: { primary:'#FF2D78', secondary:'#fff' } },
-              error:   { iconTheme: { primary:'#EF4444', secondary:'#fff' } },
-            }}
-          />
-          </AppRoutes>
+          <AppRoutes />
         </WishlistProvider>
       </CartProvider>
     </AuthProvider>

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Trash2, ShoppingBag, ArrowRight, Tag, Truck, ChevronRight, ShoppingCart, CheckCircle } from 'lucide-react'
+import { Trash2, ShoppingBag, ArrowRight, Tag, Truck, ChevronRight, ShoppingCart, CheckCircle, MapPin, Plus } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import { api, ROUTES } from '../../services/api'
 import toast from 'react-hot-toast'
@@ -14,12 +14,57 @@ export default function Cart() {
   const [placing, setPlacing]     = useState(false)
   const [promo, setPromo]         = useState('')
   const [promoApplied, setPromoApplied] = useState(null)
-  const [address, setAddress]     = useState('')
-  const [payMethod, setPayMethod] = useState('COD')
-  const [step, setStep]           = useState(1)
+  const [address, setAddress]         = useState('')
+  const [payMethod, setPayMethod]     = useState('COD')
+  const [step, setStep]               = useState(1)
+  const [savedAddress, setSavedAddress] = useState('')   // from user profile
+  const [usingSaved, setUsingSaved]   = useState(false)  // true = using saved address
+  const [saveNew, setSaveNew]         = useState(false)  // save typed address to profile
+  const [feeEstimate, setFeeEstimate] = useState(null)
+  const [estimating, setEstimating]   = useState(false)
+  const debounceRef = useRef(null)
+
+  // Load saved address from profile
+  useEffect(() => {
+    api.get(ROUTES.profile).then(({ ok, data }) => {
+      if (ok && data.data?.address) {
+        const parts = [data.data.address, data.data.landmark, data.data.city].filter(Boolean)
+        const full = parts.join(', ')
+        setSavedAddress(full)
+        setAddress(full)
+        setUsingSaved(true)
+      }
+    })
+  }, [])
+
+  // Get restaurant from first cart item
+  const restaurantId = cartItems[0]?.restaurant?._id
+
+  // Debounce address → call AI estimate
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!address.trim() || address.trim().length < 8 || !restaurantId) {
+      setFeeEstimate(null)
+      return
+    }
+    debounceRef.current = setTimeout(async () => {
+      setEstimating(true)
+      try {
+        const res = await fetch('/api/delivery/estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurantId, customerAddress: address }),
+        })
+        const data = await res.json()
+        if (res.ok) setFeeEstimate(data)
+      } catch {}
+      setEstimating(false)
+    }, 700)
+    return () => clearTimeout(debounceRef.current)
+  }, [address, restaurantId])
 
   const subtotal    = cartItems.reduce((s, p) => s + (p.productPrice || 0), 0)
-  const deliveryFee = subtotal >= 500 ? 0 : 50
+  const deliveryFee = feeEstimate ? feeEstimate.deliveryFee : (subtotal >= 500 ? 0 : 50)
   const discount    = promoApplied ? Math.floor(subtotal * (PROMOS[promoApplied] / 100)) : 0
   const total       = subtotal + deliveryFee - discount
 
@@ -37,6 +82,10 @@ export default function Cart() {
     e.preventDefault()
     if (!address.trim()) { toast.error('Enter delivery address'); return }
     setPlacing(true)
+    // Optionally save new address to profile
+    if (!usingSaved && saveNew && address.trim()) {
+      await api.patch(ROUTES.profile, { address: address.trim() })
+    }
     const { ok, data } = await api.post(ROUTES.createOrder, {
       items: cartItems.map(p => ({ product: p._id, quantity: 1 })),
       totalAmount: total, shippingAddress: address,
@@ -124,12 +173,60 @@ export default function Cart() {
           {step === 2 && (
             <form onSubmit={handleOrder} className="space-y-5">
               <div className="card p-6 space-y-4">
-                <h3 className="font-display font-bold text-xl text-ink">Delivery Details</h3>
-                <div>
-                  <p className="text-xs font-display font-bold text-ink uppercase tracking-wider mb-2">DELIVERY ADDRESS *</p>
-                  <textarea className="input-field resize-none rounded-2xl" rows={3} placeholder="Street, Area, Landmark..."
-                    value={address} onChange={e => setAddress(e.target.value)} required />
-                </div>
+                <h3 className="font-display font-bold text-xl text-ink">Delivery Address</h3>
+
+                {/* Saved address option */}
+                {savedAddress && (
+                  <button type="button"
+                    onClick={() => { setUsingSaved(true); setAddress(savedAddress); setSaveNew(false) }}
+                    className={`w-full flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                      usingSaved ? 'border-pink-500 bg-pink-50' : 'border-faint hover:border-pink-300'
+                    }`}>
+                    <MapPin size={18} className={`mt-0.5 shrink-0 ${usingSaved ? 'text-pink-600' : 'text-muted'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${usingSaved ? 'text-pink-600' : 'text-muted'}`}>Saved Address</p>
+                      <p className="text-sm text-ink font-semibold">{savedAddress}</p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center ${usingSaved ? 'border-pink-500' : 'border-faint'}`}>
+                      {usingSaved && <div className="w-2.5 h-2.5 rounded-full bg-pink-500" />}
+                    </div>
+                  </button>
+                )}
+
+                {/* New address option */}
+                <button type="button"
+                  onClick={() => { setUsingSaved(false); setAddress(''); setFeeEstimate(null) }}
+                  className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                    !usingSaved ? 'border-pink-500 bg-pink-50' : 'border-faint hover:border-pink-300'
+                  }`}>
+                  <Plus size={18} className={!usingSaved ? 'text-pink-600' : 'text-muted'} />
+                  <p className={`text-sm font-bold ${!usingSaved ? 'text-pink-600' : 'text-muted'}`}>
+                    {savedAddress ? 'Use a different address' : 'Enter delivery address'}
+                  </p>
+                  <div className={`w-5 h-5 rounded-full border-2 shrink-0 ml-auto flex items-center justify-center ${!usingSaved ? 'border-pink-500' : 'border-faint'}`}>
+                    {!usingSaved && <div className="w-2.5 h-2.5 rounded-full bg-pink-500" />}
+                  </div>
+                </button>
+
+                {/* Text input when entering new address */}
+                {!usingSaved && (
+                  <div>
+                    <textarea className="input-field resize-none rounded-2xl" rows={3}
+                      placeholder="Street, Area, Landmark..."
+                      value={address} onChange={e => setAddress(e.target.value)} required />
+                    {estimating && (
+                      <p className="text-xs text-pink-500 mt-1 flex items-center gap-1">
+                        <span className="w-3 h-3 border border-pink-400 border-t-transparent rounded-full animate-spin"/>
+                        AI is calculating delivery fee…
+                      </p>
+                    )}
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={saveNew} onChange={e => setSaveNew(e.target.checked)}
+                        className="w-4 h-4 accent-pink-600 rounded" />
+                      <span className="text-xs text-muted font-semibold">Save this address for future orders</span>
+                    </label>
+                  </div>
+                )}
               </div>
               <div className="card p-6 space-y-3">
                 <h3 className="font-display font-bold text-xl text-ink">Payment</h3>
@@ -185,10 +282,18 @@ export default function Cart() {
 
             <div className="space-y-2 border-t border-faint pt-3 text-sm">
               <div className="flex justify-between"><span className="text-muted">Subtotal</span><span>NPR {subtotal.toLocaleString()}</span></div>
-              <div className="flex justify-between">
-                <span className="text-muted flex items-center gap-1"><Truck size={11}/> Delivery</span>
+              <div className="flex justify-between items-start">
+                <span className="text-muted flex items-center gap-1"><Truck size={11}/> Delivery
+                  {estimating && <span className="w-3 h-3 border border-pink-400 border-t-transparent rounded-full animate-spin ml-1"/>}
+                </span>
                 <span className={deliveryFee === 0 ? 'text-green-600 font-bold' : ''}>{deliveryFee === 0 ? 'FREE' : `NPR ${deliveryFee}`}</span>
               </div>
+              {feeEstimate && (
+                <div className="bg-pink-50 border border-pink-100 rounded-xl px-3 py-2 text-xs text-slate">
+                  <span className="inline-flex items-center gap-1 text-pink-600 font-semibold">✦ AI · {feeEstimate.distanceKm} km</span>
+                  <p className="mt-0.5 text-muted">{feeEstimate.explanation}</p>
+                </div>
+              )}
               {discount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>– NPR {discount.toLocaleString()}</span></div>}
               <div className="flex justify-between border-t border-faint pt-2 font-display font-extrabold">
                 <span>Total</span><span className="text-pink text-xl">NPR {total.toLocaleString()}</span>

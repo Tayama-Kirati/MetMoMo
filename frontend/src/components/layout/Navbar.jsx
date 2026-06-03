@@ -93,6 +93,7 @@ export default function Navbar() {
             {!isOwner && !isAdmin && <NavLink to="/orders" label="My Orders" pathname={pathname} />}
             {isAdmin && <NavLink to="/admin" label="Admin" pathname={pathname} />}
             {isOwner && <NavLink to="/owner" label="Dashboard" pathname={pathname} />}
+            {isOwner && <NavLink to="/owner/orders" label="Orders" pathname={pathname} />}
             {isOwner && <NavLink to="/owner/menu" label="Menu Items" pathname={pathname} />}
             {isOwner && <NavLink to="/owner/restaurant" label="Restaurant" pathname={pathname} />}
           </div>
@@ -139,6 +140,7 @@ export default function Navbar() {
                         ...(!isOwner && !isAdmin ? [{ to: '/wishlist', icon: <Heart size={14}/>,        label: 'Wishlist'   }] : []),
                         ...(isAdmin ? [{ to: '/admin',        icon: <LayoutDashboard size={14}/>, label: 'Admin Panel'    }] : []),
                         ...(isOwner ? [{ to: '/owner',        icon: <Store size={14}/>,          label: 'Dashboard'     }] : []),
+                        ...(isOwner ? [{ to: '/owner/orders', icon: <ShoppingCart size={14}/>,   label: 'Orders'        }] : []),
                         ...(isOwner ? [{ to: '/owner/menu',   icon: <Store size={14}/>,          label: 'Menu Items'    }] : []),
                       ].map(item => (
                         <Link key={item.to} to={item.to} onClick={() => setDrop(false)}
@@ -181,7 +183,7 @@ export default function Navbar() {
               ...(!isOwner && !isAdmin && user ? [{ to: '/wishlist', l: 'Wishlist' }, { to: '/cart', l: `Cart${cartCount > 0 ? ` (${cartCount})` : ''}` }] : []),
               ...(user ? [{ to: '/profile', l: 'Profile' }] : []),
               ...(isAdmin ? [{ to: '/admin', l: 'Admin Dashboard' }] : []),
-              ...(isOwner ? [{ to: '/owner', l: 'Dashboard' }, { to: '/owner/menu', l: 'Menu Items' }, { to: '/owner/restaurant', l: 'My Restaurant' }] : []),
+              ...(isOwner ? [{ to: '/owner', l: 'Dashboard' }, { to: '/owner/orders', l: 'Orders' }, { to: '/owner/menu', l: 'Menu Items' }, { to: '/owner/restaurant', l: 'My Restaurant' }] : []),
             ].map(({ to, l }) => (
               <Link key={to} to={to}
                 className={`px-4 py-3 rounded-2xl font-display font-semibold text-sm transition-colors ${pathname === to ? 'bg-pink-50 text-pink' : 'text-ink hover:bg-pink-50 hover:text-pink'}`}>

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingBag, Edit3, Bell, LogOut, Star, RefreshCw, ChevronDown, ChevronUp, Clock, Package, CheckCircle, XCircle, Truck, ChefHat } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Star, RefreshCw, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle, Truck, ChefHat } from 'lucide-react'
 import { api, ROUTES } from '../../services/api'
-import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
 const STATUS = {
@@ -22,65 +21,34 @@ const TRACK_STEPS = [
   { label: 'Delivered',   icon: '🏠' },
 ]
 
-// Sidebar matches the screenshot exactly
-function Sidebar({ active }) {
-  const { logout, user } = useAuth()
-  const navigate = useNavigate()
-  const handleLogout = () => { logout(); toast.success('Bye!'); navigate('/') }
 
-  const links = [
-    { to: '/orders',  icon: <ShoppingBag size={16}/>, label: 'My Order' },
-    { to: '/profile', icon: <Edit3 size={16}/>,       label: 'Edit My Profile' },
-    { to: '/profile', icon: <Bell size={16}/>,         label: 'Notifications' },
-  ]
-
-  return (
-    <aside className="w-56 shrink-0">
-      <div className="card p-4 sticky top-24">
-        {/* Avatar */}
-        <div className="flex flex-col items-center py-4 mb-4 border-b border-faint">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink to-rose-dark text-white font-display font-black text-2xl flex items-center justify-center shadow-pink-sm mb-2">
-            {user?.userName?.[0]?.toUpperCase() || 'U'}
-          </div>
-          <p className="font-display font-bold text-ink text-sm">{user?.userName}</p>
-          <p className="text-muted text-xs truncate w-full text-center">{user?.userEmail}</p>
-        </div>
-
-        <nav className="space-y-1">
-          {links.map(l => (
-            <Link key={l.label} to={l.to}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-display font-semibold transition-colors
-                ${active === l.to ? 'bg-pink-50 text-pink' : 'text-slate hover:bg-pink-50 hover:text-pink'}`}>
-              {l.icon} {l.label}
-            </Link>
-          ))}
-          <button onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-display font-semibold text-red-500 hover:bg-red-50 transition-colors">
-            <LogOut size={16}/> Logout
-          </button>
-        </nav>
-      </div>
-    </aside>
-  )
-}
-
-function OrderCard({ order }) {
+function OrderCard({ order, onStatusUpdate }) {
   const [expanded, setExpanded] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [ratingVal, setRatingVal] = useState(0)
   const [savingRating, setSavingRating] = useState(false)
   const st = STATUS[order.orderStatus] || STATUS.pending
-  const canCancel = ['pending', 'confirmed'].includes(order.orderStatus)
-  const canRate   = order.orderStatus === 'delivered' && !order.rating
-  const isActive  = ['pending', 'confirmed', 'preparation', 'ontheway'].includes(order.orderStatus)
+  const canCancel  = ['pending', 'confirmed'].includes(order.orderStatus)
+  const canConfirm = order.orderStatus === 'ontheway'
+  const canRate    = order.orderStatus === 'delivered' && !order.rating
+  const isActive   = ['pending', 'confirmed', 'preparation', 'ontheway'].includes(order.orderStatus)
 
   const handleCancel = async () => {
     if (!confirm('Cancel this order?')) return
     setCancelling(true)
     const { ok, data } = await api.delete(ROUTES.cancelOrder(order._id))
-    if (ok) toast.success('Order cancelled')
-    else toast.error(data.message || 'Cannot cancel now')
+    if (ok) { toast.success('Order cancelled'); onStatusUpdate(order._id, 'cancelled') }
+    else toast.error(data?.message || 'Cannot cancel now')
     setCancelling(false)
+  }
+
+  const handleConfirmDelivered = async () => {
+    setConfirming(true)
+    const { ok, data } = await api.patch(`/orders/${order._id}/delivered`)
+    if (ok) { toast.success('Order marked as delivered!'); onStatusUpdate(order._id, 'delivered') }
+    else toast.error(data?.message || 'Could not update')
+    setConfirming(false)
   }
 
   const handleRate = async () => {
@@ -215,15 +183,26 @@ function OrderCard({ order }) {
           )}
 
           {/* Actions */}
-          <div className="flex gap-2">
-            {canCancel && (
-              <button onClick={handleCancel} disabled={cancelling} className="btn-outline text-red-500 border-red-200 hover:bg-red-50 text-sm py-2 px-4 rounded-xl gap-1">
-                {cancelling ? <span className="spinner-pink" /> : <XCircle size={13}/>} Cancel Order
+          <div className="flex flex-col gap-2">
+            {canConfirm && (
+              <button onClick={handleConfirmDelivered} disabled={confirming}
+                className="btn-pink w-full justify-center py-3 gap-2 rounded-xl">
+                {confirming
+                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
+                  : <CheckCircle size={15}/>}
+                {confirming ? 'Confirming…' : 'I Received My Order'}
               </button>
             )}
-            <Link to="/restaurants" className="btn-soft text-sm py-2 px-4 rounded-xl gap-1">
-              <RefreshCw size={13}/> Reorder
-            </Link>
+            <div className="flex gap-2">
+              {canCancel && (
+                <button onClick={handleCancel} disabled={cancelling} className="btn-outline text-red-500 border-red-200 hover:bg-red-50 text-sm py-2 px-4 rounded-xl gap-1">
+                  {cancelling ? <span className="spinner-pink" /> : <XCircle size={13}/>} Cancel Order
+                </button>
+              )}
+              <Link to="/restaurants" className="btn-soft text-sm py-2 px-4 rounded-xl gap-1">
+                <RefreshCw size={13}/> Reorder
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -234,7 +213,6 @@ function OrderCard({ order }) {
 export default function Orders() {
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(true)
-  const { pathname } = useLocation()
 
   const load = () => {
     setLoading(true)
@@ -242,47 +220,34 @@ export default function Orders() {
   }
   useEffect(() => { load() }, [])
 
+  const handleStatusUpdate = (orderId, newStatus) => {
+    setOrders(prev => prev.map(o => o._id === orderId ? { ...o, orderStatus: newStatus } : o))
+  }
+
   return (
-    <div className="page-wrap">
-      <div className="flex gap-8">
-        {/* Sidebar */}
-        <div className="hidden md:block">
-          <Sidebar active="/orders" />
-        </div>
-
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
-          {/* Header bar matching screenshot */}
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-faint">
-            <div className="flex-1">
-              <p className="text-slate text-sm">Order food from the widest range of restaurants.</p>
-            </div>
-            <Link to="/restaurants" className="btn-pink text-sm gap-1.5 ml-4">
-              Find Restaurants
-            </Link>
-          </div>
-
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-display font-bold text-xl text-ink">Previous Orders</h2>
-            <button onClick={load} className="btn-ghost gap-1.5 text-sm"><RefreshCw size={13}/> Refresh</button>
-          </div>
-
-          {loading ? (
-            <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="skeleton h-28 rounded-3xl" />)}</div>
-          ) : orders.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="text-6xl mb-4">📦</div>
-              <h3 className="font-display font-bold text-xl text-ink mb-2">No orders yet</h3>
-              <p className="text-muted mb-6">Place your first order!</p>
-              <Link to="/restaurants" className="btn-pink">Browse Menu</Link>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {orders.map(order => <OrderCard key={order._id} order={order} />)}
-            </div>
-          )}
+    <div className="page-wrap max-w-3xl mx-auto">
+      <div className="flex items-center justify-between mb-6 pb-4 border-b border-faint">
+        <h2 className="font-display font-bold text-xl text-ink">My Orders</h2>
+        <div className="flex items-center gap-3">
+          <button onClick={load} className="btn-ghost gap-1.5 text-sm"><RefreshCw size={13}/> Refresh</button>
+          <Link to="/restaurants" className="btn-pink text-sm gap-1.5">Find Restaurants</Link>
         </div>
       </div>
+
+      {loading ? (
+        <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="skeleton h-28 rounded-3xl" />)}</div>
+      ) : orders.length === 0 ? (
+        <div className="text-center py-20">
+          <div className="text-6xl mb-4">📦</div>
+          <h3 className="font-display font-bold text-xl text-ink mb-2">No orders yet</h3>
+          <p className="text-muted mb-6">Place your first order!</p>
+          <Link to="/restaurants" className="btn-pink">Browse Menu</Link>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {orders.map(order => <OrderCard key={order._id} order={order} onStatusUpdate={handleStatusUpdate} />)}
+        </div>
+      )}
     </div>
   )
 }

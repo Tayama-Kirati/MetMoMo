@@ -5,6 +5,19 @@ import { api, ROUTES } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
+function getPasswordStrength(password) {
+  if (!password) return null
+  let score = 0
+  if (password.length >= 8) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[a-z]/.test(password)) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[^A-Za-z0-9]/.test(password)) score++
+  if (score <= 1) return { label: 'Weak', bar: 'w-1/3 bg-red-400', text: 'text-red-500' }
+  if (score <= 3) return { label: 'Medium', bar: 'w-2/3 bg-yellow-400', text: 'text-yellow-600' }
+  return { label: 'Strong', bar: 'w-full bg-green-500', text: 'text-green-600' }
+}
+
 const Field = ({ label, type = 'text', placeholder, value, onChange }) => (
   <div>
     <label className="block text-xs font-display font-bold text-pink-400 uppercase tracking-wider mb-2">
@@ -35,6 +48,8 @@ export default function Register() {
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
 
+  const passwordMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (form.password !== form.confirmPassword) {
@@ -43,22 +58,31 @@ export default function Register() {
     }
     const autoUserName = (form.firstName + form.lastName).toLowerCase().replace(/\s+/g, '') || form.email.split('@')[0]
     setLoading(true)
-    const { ok, data } = await api.post(ROUTES.register, {
-      userName:    autoUserName,
-      email:       form.email,
-      phoneNumber: form.phoneNumber,
-      password:    form.password,
-      firstName:   form.firstName,
-      lastName:    form.lastName,
-      userRole:    form.userRole,
-    })
-    if (ok) {
-      toast.success(form.userRole === 'restaurant_owner'
-        ? 'Restaurant owner account created! Please login.'
-        : 'Account created! Please login.')
-      navigate('/login')
+    try {
+      const { ok, data } = await api.post(ROUTES.register, {
+        userName:    autoUserName,
+        email:       form.email,
+        phoneNumber: form.phoneNumber,
+        password:    form.password,
+        firstName:   form.firstName,
+        lastName:    form.lastName,
+        userRole:    form.userRole,
+      })
+      if (ok && data.token) {
+        login(data.token)
+        toast.success(form.userRole === 'restaurant_owner'
+          ? 'Welcome! Your restaurant owner account is ready.'
+          : 'Welcome to MetMomo!')
+        navigate(form.userRole === 'restaurant_owner' ? '/owner' : '/', { replace: true })
+      } else if (ok) {
+        toast.success('Account created! Please log in.')
+        navigate('/login', { replace: true })
+      } else {
+        toast.error(data?.message || 'Registration failed')
+      }
+    } catch {
+      toast.error('Could not connect to server. Please check your connection.')
     }
-    else toast.error(data?.message || 'Registration failed')
     setLoading(false)
   }
 
@@ -153,6 +177,18 @@ export default function Register() {
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {/* Password strength bar */}
+                {form.password && (() => {
+                  const s = getPasswordStrength(form.password)
+                  return (
+                    <div className="mt-2">
+                      <div className="h-1.5 w-full bg-pink-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-300 ${s.bar}`} />
+                      </div>
+                      <p className={`text-[11px] font-semibold mt-1 ${s.text}`}>{s.label} password</p>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Confirm Password with show/hide */}
@@ -177,6 +213,12 @@ export default function Register() {
                     {showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {passwordMismatch && (
+                  <p className="text-[11px] font-semibold text-red-500 mt-1">Passwords do not match</p>
+                )}
+                {!passwordMismatch && form.confirmPassword.length > 0 && (
+                  <p className="text-[11px] font-semibold text-green-600 mt-1">Passwords match</p>
+                )}
               </div>
 
               {/* <Field label="Username" placeholder="username" value={form.userName} onChange={set('userName')} /> */}
@@ -184,8 +226,8 @@ export default function Register() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full h-11 bg-pink-600 hover:bg-pink-700 active:scale-95 text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2 mt-2"
+              disabled={loading || passwordMismatch}
+              className="w-full h-11 bg-pink-600 hover:bg-pink-700 active:scale-95 text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? <span className="spinner" /> : null}
               {loading ? 'Creating...' : 'Create Account'}

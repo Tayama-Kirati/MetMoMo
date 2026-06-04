@@ -3,21 +3,19 @@ import { api } from '../../services/api'
 import toast from 'react-hot-toast'
 import { RefreshCw, ChevronDown, ChevronUp, Clock, Phone, Mail, Package } from 'lucide-react'
 
-const STATUS_FLOW = ['pending', 'confirmed', 'preparation', 'ontheway', 'delivered']
+const STATUS_FLOW = ['pending', 'confirmed', 'ontheway', 'delivered']
 
 const STATUS_STYLE = {
-  pending:     { label: 'Pending',    bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' },
-  confirmed:   { label: 'Confirmed',  bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-200'   },
-  preparation: { label: 'Preparing',  bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'border-pink-200'   },
-  ontheway:    { label: 'On the Way', bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
-  delivered:   { label: 'Delivered',  bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-200'  },
-  cancelled:   { label: 'Cancelled',  bg: 'bg-red-100',    text: 'text-red-600',    border: 'border-red-200'    },
+  pending:   { label: 'Pending',    bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' },
+  confirmed: { label: 'Confirmed',  bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-200'   },
+  ontheway:  { label: 'On the Way', bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
+  delivered: { label: 'Delivered',  bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-200'  },
+  cancelled: { label: 'Cancelled',  bg: 'bg-red-100',    text: 'text-red-600',    border: 'border-red-200'    },
 }
 
 const NEXT_ACTIONS = {
-  pending:     { label: 'Confirm Order',    next: 'confirmed'   },
-  confirmed:   { label: 'Start Preparing',  next: 'preparation' },
-  preparation: { label: 'Out for Delivery', next: 'ontheway'    },
+  pending:   { label: 'Confirm Order',    next: 'confirmed' },
+  confirmed: { label: 'Out for Delivery', next: 'ontheway'  },
   // ontheway: customer confirms delivery — no owner action here
 }
 
@@ -49,7 +47,7 @@ function OrderCard({ order, onStatusUpdate }) {
 
   return (
     <div className={`card overflow-hidden ${['pending','confirmed','preparation'].includes(order.orderStatus) ? 'border-pink/30' : ''}`}>
-      {['pending','confirmed','preparation'].includes(order.orderStatus) && (
+      {['pending','confirmed'].includes(order.orderStatus) && (
         <div className="h-1 bg-gradient-to-r from-pink via-rose-400 to-pink bg-[length:200%] animate-shimmer" />
       )}
 
@@ -152,7 +150,7 @@ function OrderCard({ order, onStatusUpdate }) {
                   {nextAction.label}
                 </button>
               )}
-              {!['delivered','cancelled','ontheway'].includes(order.orderStatus) && (
+              {['pending','confirmed'].includes(order.orderStatus) && (
                 <button onClick={cancel} disabled={cancelling}
                   className="px-4 py-2.5 rounded-xl text-sm font-semibold text-red-500 border border-red-200 hover:bg-red-50 transition-colors">
                   {cancelling ? '...' : 'Cancel'}
@@ -166,7 +164,7 @@ function OrderCard({ order, onStatusUpdate }) {
   )
 }
 
-const FILTERS = ['all', 'pending', 'confirmed', 'preparation', 'ontheway', 'delivered', 'cancelled']
+const FILTERS = ['all', 'pending', 'confirmed', 'ontheway', 'delivered', 'cancelled']
 
 export default function OwnerOrders() {
   const [orders, setOrders]   = useState([])

@@ -1,5 +1,6 @@
 const Restaurant = require('../../models/restaurantModel')
 const Product    = require('../../models/productModel')
+const Order      = require('../../models/orderSchema')
 const Review     = require('../../models/reviewModel')
 const catchAsync = require('../../services/catchAsync')
 const path       = require('path')
@@ -179,4 +180,135 @@ exports.getMyRestaurantReviews = catchAsync(async (req, res) => {
     .sort({ createdAt: -1 })
 
   res.status(200).json({ message: 'Reviews fetched', data: reviews })
+})
+
+// GET /api/owner/orders  — all orders that contain this owner's products
+exports.getMyOrders = catchAsync(async (req, res) => {
+  const restaurant = await Restaurant.findOne({ owner: req.user._id })
+  if (!restaurant) return res.status(404).json({ message: 'No restaurant found' })
+
+  const myProducts = await Product.find({ restaurant: restaurant._id }).select('_id')
+  const productIds = myProducts.map(p => p._id)
+
+  const orders = await Order.find({ 'items.product': { $in: productIds } })
+    .populate({ path: 'items.product', select: 'productName productPrice productImage productCategory' })
+    .populate({ path: 'user', select: 'userName userEmail userPhoneNumber' })
+    .sort({ createdAt: -1 })
+
+  res.status(200).json({ message: 'Orders fetched', data: orders })
+})
+
+// PATCH /api/owner/orders/:id/status  — update order status
+const ALLOWED_STATUSES = ['pending', 'confirmed', 'preparation', 'ontheway', 'delivered', 'cancelled']
+
+exports.updateOrderStatus = catchAsync(async (req, res) => {
+  const { status } = req.body
+  if (!ALLOWED_STATUSES.includes(status)) {
+    return res.status(400).json({ message: 'Invalid status' })
+  }
+
+  const restaurant = await Restaurant.findOne({ owner: req.user._id })
+  if (!restaurant) return res.status(404).json({ message: 'No restaurant found' })
+
+  const myProducts = await Product.find({ restaurant: restaurant._id }).select('_id')
+  const productIds = myProducts.map(p => p._id.toString())
+
+  const order = await Order.findById(req.params.id)
+  if (!order) return res.status(404).json({ message: 'Order not found' })
+
+  const belongsToOwner = order.items.some(item => productIds.includes(item.product?.toString()))
+  if (!belongsToOwner) return res.status(403).json({ message: 'Not your order' })
+
+  order.orderStatus = status
+  await order.save()
+
+  // Notify the customer via Socket.io
+  const NOTIFY = {
+    confirmed: { title: 'Order Confirmed! ✅', body: `${restaurant.name} has confirmed your order.` },
+    ontheway:  { title: 'Order On the Way! 🛵', body: `Your order from ${restaurant.name} is on its way to you!` },
+    delivered: { title: 'Order Delivered! 🏠', body: `Your order from ${restaurant.name} has been delivered.` },
+    cancelled: { title: 'Order Cancelled', body: `Your order from ${restaurant.name} was cancelled.` },
+  }
+  if (NOTIFY[status] && global._io) {
+    global._io.to(order.user.toString()).emit('order:status', {
+      orderId: order._id,
+      status,
+      ...NOTIFY[status],
+    })
+  }
+
+  res.status(200).json({ message: 'Status updated', data: order })
+})
+
+// GET /api/owner/finance  — revenue analytics
+exports.getFinance = catchAsync(async (req, res) => {
+  const restaurant = await Restaurant.findOne({ owner: req.user._id })
+  if (!restaurant) return res.status(404).json({ message: 'No restaurant found' })
+
+  const myProducts = await Product.find({ restaurant: restaurant._id }).select('_id productName productPrice')
+  const productIds = myProducts.map(p => p._id)
+
+  // All delivered orders containing this restaurant's products
+  const orders = await Order.find({
+    'items.product': { $in: productIds },
+    orderStatus: { $in: ['delivered', 'pending', 'confirmed', 'preparation', 'ontheway'] },
+  }).select('totalAmount orderStatus createdAt items').lean()
+
+  const deliveredOrders = orders.filter(o => o.orderStatus === 'delivered')
+  const activeOrders    = orders.filter(o => o.orderStatus !== 'delivered')
+
+  const now   = new Date()
+  const todayStart  = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const weekStart   = new Date(todayStart); weekStart.setDate(weekStart.getDate() - 6)
+  const monthStart  = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  const sum = (arr) => arr.reduce((s, o) => s + (o.totalAmount || 0), 0)
+  const inRange = (arr, from, to) => arr.filter(o => new Date(o.createdAt) >= from && new Date(o.createdAt) <= to)
+
+  // Daily: last 7 days
+  const daily = []
+  for (let i = 6; i >= 0; i--) {
+    const day   = new Date(todayStart); day.setDate(day.getDate() - i)
+    const dayEnd = new Date(day); dayEnd.setDate(dayEnd.getDate() + 1)
+    const label = day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
+    daily.push({ label, revenue: sum(inRange(deliveredOrders, day, dayEnd)), orders: inRange(deliveredOrders, day, dayEnd).length })
+  }
+
+  // Weekly: last 8 weeks
+  const weekly = []
+  for (let i = 7; i >= 0; i--) {
+    const wStart = new Date(todayStart); wStart.setDate(wStart.getDate() - i * 7)
+    const wEnd   = new Date(wStart); wEnd.setDate(wEnd.getDate() + 7)
+    const label  = `Wk ${wStart.toLocaleDateString('en-GB', { day:'numeric', month:'short' })}`
+    weekly.push({ label, revenue: sum(inRange(deliveredOrders, wStart, wEnd)), orders: inRange(deliveredOrders, wStart, wEnd).length })
+  }
+
+  // Monthly: last 6 months
+  const monthly = []
+  for (let i = 5; i >= 0; i--) {
+    const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const mEnd   = new Date(now.getFullYear(), now.getMonth() - i + 1, 1)
+    const label  = mStart.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })
+    monthly.push({ label, revenue: sum(inRange(deliveredOrders, mStart, mEnd)), orders: inRange(deliveredOrders, mStart, mEnd).length })
+  }
+
+  res.status(200).json({
+    message: 'Finance data',
+    data: {
+      summary: {
+        totalRevenue:   sum(deliveredOrders),
+        totalOrders:    deliveredOrders.length,
+        activeOrders:   activeOrders.length,
+        todayRevenue:   sum(inRange(deliveredOrders, todayStart, now)),
+        weekRevenue:    sum(inRange(deliveredOrders, weekStart, now)),
+        monthRevenue:   sum(inRange(deliveredOrders, monthStart, now)),
+        todayOrders:    inRange(deliveredOrders, todayStart, now).length,
+        weekOrders:     inRange(deliveredOrders, weekStart, now).length,
+        monthOrders:    inRange(deliveredOrders, monthStart, now).length,
+      },
+      daily,
+      weekly,
+      monthly,
+    },
+  })
 })

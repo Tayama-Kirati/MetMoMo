@@ -1,22 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Star, RefreshCw, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle, Truck, ChefHat } from 'lucide-react'
+import { Star, RefreshCw, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle, Truck } from 'lucide-react'
 import { api, ROUTES } from '../../services/api'
 import toast from 'react-hot-toast'
 
 const STATUS = {
-  pending:     { label: 'Pending',    icon: <Clock size={12}/>,        cls: 'badge-yellow', step: 0 },
-  confirmed:   { label: 'Confirmed',  icon: <CheckCircle size={12}/>,  cls: 'badge-green',  step: 1 },
-  preparation: { label: 'Preparing',  icon: <ChefHat size={12}/>,      cls: 'badge-pink',   step: 2 },
-  ontheway:    { label: 'On the Way', icon: <Truck size={12}/>,        cls: 'badge-gray',   step: 3 },
-  delivered:   { label: 'Delivered',  icon: <CheckCircle size={12}/>,  cls: 'badge-green',  step: 4 },
-  cancelled:   { label: 'Cancelled',  icon: <XCircle size={12}/>,      cls: 'badge-red',    step: -1 },
+  pending:   { label: 'Pending',    icon: <Clock size={12}/>,       cls: 'badge-yellow', step: 0 },
+  confirmed: { label: 'Confirmed',  icon: <CheckCircle size={12}/>, cls: 'badge-green',  step: 1 },
+  ontheway:  { label: 'On the Way', icon: <Truck size={12}/>,       cls: 'badge-gray',   step: 2 },
+  delivered: { label: 'Delivered',  icon: <CheckCircle size={12}/>, cls: 'badge-green',  step: 3 },
+  cancelled: { label: 'Cancelled',  icon: <XCircle size={12}/>,     cls: 'badge-red',    step: -1 },
 }
 
 const TRACK_STEPS = [
   { label: 'Placed',      icon: '📋' },
   { label: 'Confirmed',   icon: '✅' },
-  { label: 'Preparing',   icon: '👨‍🍳' },
   { label: 'On the Way',  icon: '🛵' },
   { label: 'Delivered',   icon: '🏠' },
 ]
@@ -25,14 +23,13 @@ const TRACK_STEPS = [
 function OrderCard({ order, onStatusUpdate }) {
   const [expanded, setExpanded] = useState(false)
   const [cancelling, setCancelling] = useState(false)
-  const [confirming, setConfirming] = useState(false)
-  const [ratingVal, setRatingVal] = useState(0)
+  const [ratingVal, setRatingVal]   = useState(0)
   const [savingRating, setSavingRating] = useState(false)
-  const st = STATUS[order.orderStatus] || STATUS.pending
-  const canCancel  = ['pending', 'confirmed'].includes(order.orderStatus)
-  const canConfirm = order.orderStatus === 'ontheway'
-  const canRate    = order.orderStatus === 'delivered' && !order.rating
-  const isActive   = ['pending', 'confirmed', 'preparation', 'ontheway'].includes(order.orderStatus)
+  const st        = STATUS[order.orderStatus] || STATUS.pending
+  const canCancel = ['pending', 'confirmed'].includes(order.orderStatus)
+  const canRate   = order.orderStatus === 'delivered' && !order.rating
+  const isActive  = ['pending', 'confirmed', 'ontheway'].includes(order.orderStatus)
+  const reorderRestaurantId = order.items?.[0]?.product?.restaurant?._id
 
   const handleCancel = async () => {
     if (!confirm('Cancel this order?')) return
@@ -41,14 +38,6 @@ function OrderCard({ order, onStatusUpdate }) {
     if (ok) { toast.success('Order cancelled'); onStatusUpdate(order._id, 'cancelled') }
     else toast.error(data?.message || 'Cannot cancel now')
     setCancelling(false)
-  }
-
-  const handleConfirmDelivered = async () => {
-    setConfirming(true)
-    const { ok, data } = await api.patch(`/orders/${order._id}/delivered`)
-    if (ok) { toast.success('Order marked as delivered!'); onStatusUpdate(order._id, 'delivered') }
-    else toast.error(data?.message || 'Could not update')
-    setConfirming(false)
   }
 
   const handleRate = async () => {
@@ -183,26 +172,17 @@ function OrderCard({ order, onStatusUpdate }) {
           )}
 
           {/* Actions */}
-          <div className="flex flex-col gap-2">
-            {canConfirm && (
-              <button onClick={handleConfirmDelivered} disabled={confirming}
-                className="btn-pink w-full justify-center py-3 gap-2 rounded-xl">
-                {confirming
-                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
-                  : <CheckCircle size={15}/>}
-                {confirming ? 'Confirming…' : 'I Received My Order'}
+          <div className="flex gap-2">
+            {canCancel && (
+              <button onClick={handleCancel} disabled={cancelling}
+                className="btn-outline text-red-500 border-red-200 hover:bg-red-50 text-sm py-2 px-4 rounded-xl gap-1">
+                {cancelling ? <span className="spinner-pink"/> : <XCircle size={13}/>} Cancel Order
               </button>
             )}
-            <div className="flex gap-2">
-              {canCancel && (
-                <button onClick={handleCancel} disabled={cancelling} className="btn-outline text-red-500 border-red-200 hover:bg-red-50 text-sm py-2 px-4 rounded-xl gap-1">
-                  {cancelling ? <span className="spinner-pink" /> : <XCircle size={13}/>} Cancel Order
-                </button>
-              )}
-              <Link to="/restaurants" className="btn-soft text-sm py-2 px-4 rounded-xl gap-1">
-                <RefreshCw size={13}/> Reorder
-              </Link>
-            </div>
+            <Link to={reorderRestaurantId ? `/restaurants/${reorderRestaurantId}` : '/restaurants'}
+              className="btn-soft text-sm py-2 px-4 rounded-xl gap-1">
+              <RefreshCw size={13}/> Reorder
+            </Link>
           </div>
         </div>
       )}

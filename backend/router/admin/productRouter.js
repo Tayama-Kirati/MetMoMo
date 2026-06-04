@@ -4,13 +4,15 @@ const isAuthenticated = require("../../middleware/isAuthenticated");
 const restrictTo = require("../../middleware/restrictTo");
 const { multer, storage } = require("../../middleware/multerConfig");
 const catchAsync = require("../../services/catchAsync");
-const { getProducts, getProduct } = require("../../controller/global/globalController");
+const { getProducts, getProduct, getTopPicks } = require("../../controller/global/globalController");
 
 const upload = multer({ storage: storage });
 
 router.route("/")
   .get(catchAsync(getProducts))
   .post(isAuthenticated, restrictTo("admin"), upload.single("productImage"), catchAsync(createProduct));
+
+router.route("/top-picks").get(catchAsync(getTopPicks));
 
 router.route("/:id")
   .get(catchAsync(getProduct))

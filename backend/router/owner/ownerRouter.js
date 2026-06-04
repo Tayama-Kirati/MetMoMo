@@ -17,6 +17,9 @@ const {
   toggleMyProductStatus,
   deleteMyProduct,
   getMyRestaurantReviews,
+  getMyOrders,
+  updateOrderStatus,
+  getFinance,
 } = require('../../controller/owner/ownerController')
 
 // All owner routes require login + restaurant_owner role
@@ -40,5 +43,14 @@ router.route('/products/:id/status')
 
 router.route('/reviews')
   .get(catchAsync(getMyRestaurantReviews))
+
+router.route('/orders')
+  .get(catchAsync(getMyOrders))
+
+router.route('/orders/:id/status')
+  .patch(catchAsync(updateOrderStatus))
+
+router.route('/finance')
+  .get(catchAsync(getFinance))
 
 module.exports = router

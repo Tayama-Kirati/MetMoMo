@@ -10,12 +10,15 @@ const isAuthenticated = async (req, res, next) => {
   }
   try {
     const decoded = jwt.verify(token, process.env.SECRET_KEY);
-    //to check if the user is authenticated
+
     const doesUserExist = await User.findOne({ _id: decoded.id });
 
-    
     if (!doesUserExist) {
-      return res.status(401).json({ message: "User doesnot exists with the token" });
+      return res.status(401).json({ message: "User does not exist" });
+    }
+
+    if (decoded.email && doesUserExist.userEmail !== decoded.email) {
+      return res.status(401).json({ message: "Token email mismatch. Please log in again." });
     }
 
     req.user = doesUserExist;

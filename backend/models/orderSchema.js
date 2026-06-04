@@ -12,7 +12,7 @@ const orderSchema = new Schema({
   shippingAddress :{type :String, required:true},
   orderStatus :{
     type:String,
-    enum : ["pending", "delivered", "cancelled","ontheway","preparation"],
+    enum : ["pending", "confirmed", "preparation", "ontheway", "delivered", "cancelled"],
     default : "pending"
   },
   paymentDetails : {

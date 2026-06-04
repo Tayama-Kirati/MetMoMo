@@ -21,7 +21,7 @@ exports.registerUser = catchAsync(async (req, res) => {
   const allowedRoles = ['customer', 'restaurant_owner'];
   const role = allowedRoles.includes(userRole) ? userRole : 'customer';
 
-  await User.create({
+  const newUser = await User.create({
     userName,
     firstName: firstName || '',
     lastName:  lastName  || '',
@@ -31,7 +31,18 @@ exports.registerUser = catchAsync(async (req, res) => {
     userRole: role,
   });
 
-  return res.status(201).json({ message: "User registered successfully" });
+  const token = jwt.sign({ id: newUser._id, email: newUser.userEmail }, process.env.SECRET_KEY, { expiresIn: "30d" });
+
+  return res.status(201).json({
+    message: "User registered successfully",
+    token,
+    user: {
+      _id: newUser._id,
+      userName: newUser.userName,
+      userEmail: newUser.userEmail,
+      userRole: newUser.userRole,
+    },
+  });
 });
 
  
@@ -56,7 +67,7 @@ exports.loginUser = catchAsync(async (req, res) => {
   userFound[0].lastLogin = new Date();
   await userFound[0].save();
 
-  const token = jwt.sign({ id: userFound[0]._id }, process.env.SECRET_KEY, { expiresIn: "30d" });
+  const token = jwt.sign({ id: userFound[0]._id, email: userFound[0].userEmail }, process.env.SECRET_KEY, { expiresIn: "30d" });
 
   return res.status(200).json({
     message: "User logged in successfully",

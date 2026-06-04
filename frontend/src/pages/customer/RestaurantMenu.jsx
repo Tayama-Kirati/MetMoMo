@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Star, Clock, Truck, ChevronLeft, Search, Plus, Heart, X, MapPin, Phone, ShoppingBag } from 'lucide-react'
+import { Star, Clock, Truck, ChevronLeft, Search, Plus, Heart, X, MapPin, Phone, ShoppingBag, LayoutGrid, List } from 'lucide-react'
 import { api, ROUTES } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
@@ -89,6 +89,73 @@ function ProductCard({ product, isRestaurantOpen }) {
   )
 }
 
+/* ── Grid Product Card (big icon view) ── */
+function GridProductCard({ product, isRestaurantOpen }) {
+  const { token } = useAuth()
+  const { addToCart } = useCart()
+  const { toggle, isWishlisted } = useWishlist()
+  const [adding, setAdding] = useState(false)
+
+  const wishlisted = isWishlisted(product._id)
+  const available  = product.productStatus === 'available'
+
+  const handleAdd = async (e) => {
+    e.preventDefault(); e.stopPropagation()
+    if (!token)            { toast.error('Please login to order'); return }
+    if (!isRestaurantOpen) { toast.error('Restaurant is currently closed'); return }
+    if (!available)        { toast.error('Item is unavailable'); return }
+    setAdding(true)
+    const res = await addToCart(product._id)
+    if (res?.ok) toast.success(`${product.productName} added to cart!`)
+    else         toast.error('Could not add to cart')
+    setAdding(false)
+  }
+
+  const handleWishlist = (e) => { e.preventDefault(); e.stopPropagation(); toggle(product) }
+
+  return (
+    <Link to={`/product/${product._id}`} className="group flex flex-col rounded-3xl overflow-hidden border border-faint bg-white hover:shadow-card-lg hover:-translate-y-0.5 transition-all duration-200">
+      {/* Big image */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-pink-50 to-rose-100">
+        {product.productImage ? (
+          <img src={product.productImage} alt={product.productName} loading="lazy"
+            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${!available ? 'opacity-50 grayscale' : ''}`}/>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-6xl">🍜</div>
+        )}
+        {!available && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-white bg-black/60 px-2.5 py-1 rounded-full">Sold Out</span>
+          </div>
+        )}
+        <button onClick={handleWishlist}
+          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-xl shadow flex items-center justify-center transition-all ${
+            wishlisted ? 'bg-pink text-white shadow-pink-sm' : 'bg-white/90 text-pink hover:bg-white'}`}>
+          <Heart size={13} fill={wishlisted ? 'currentColor' : 'none'}/>
+        </button>
+        <span className="absolute top-2.5 left-2.5 badge-pink text-[9px]">{product.productCategory}</span>
+      </div>
+
+      {/* Info */}
+      <div className="p-3.5 flex flex-col flex-1">
+        <h4 className="font-display font-bold text-ink text-sm leading-tight mb-1 line-clamp-1">{product.productName}</h4>
+        <p className="text-muted text-xs line-clamp-2 leading-relaxed flex-1">{product.productDescription}</p>
+        <div className="flex items-center justify-between mt-3">
+          <span className="font-display font-black text-pink">NPR {product.productPrice?.toLocaleString()}</span>
+          {available && (
+            <button onClick={handleAdd} disabled={adding}
+              className="w-8 h-8 rounded-xl bg-pink text-white flex items-center justify-center shadow-pink-sm hover:bg-rose-dark active:scale-95 transition-all disabled:opacity-60">
+              {adding
+                ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                : <Plus size={14}/>}
+            </button>
+          )}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 /* ── Loading Skeleton ── */
 function Skeleton() {
   return (
@@ -123,8 +190,10 @@ export default function RestaurantMenu() {
   const [restaurant, setRestaurant] = useState(null)
   const [products, setProducts]     = useState([])
   const [loading, setLoading]       = useState(true)
+  const { toggleRestaurant, isFavRestaurant } = useWishlist()
   const [search, setSearch]         = useState('')
   const [activeCategory, setActive] = useState('All')
+  const [view, setView]             = useState('list') // 'list' | 'grid'
   const categoryRefs = useRef({})
   const contentRef   = useRef(null)
 
@@ -206,6 +275,20 @@ export default function RestaurantMenu() {
           className="absolute top-4 left-4 flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white px-3.5 py-2 rounded-full text-sm font-semibold hover:bg-white/30 transition-colors border border-white/30">
           <ChevronLeft size={16}/> Restaurants
         </Link>
+
+        {/* Favourite restaurant button */}
+        {restaurant && (
+          <button
+            onClick={() => {
+              toggleRestaurant(restaurant)
+              toast(isFavRestaurant(restaurant._id) ? '💔 Removed from favourites' : '❤️ Added to favourites!', { icon: '' })
+            }}
+            className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-110 border border-white/30 backdrop-blur-md ${
+              isFavRestaurant(restaurant?._id) ? 'bg-pink text-white' : 'bg-white/20 text-white hover:bg-white/30'
+            }`}>
+            <Heart size={18} fill={isFavRestaurant(restaurant?._id) ? 'currentColor' : 'none'}/>
+          </button>
+        )}
 
         {/* Closed overlay */}
         {!restaurant.isOpen && (
@@ -315,21 +398,34 @@ export default function RestaurantMenu() {
         {/* Main Content */}
         <div className="flex-1 min-w-0">
 
-          {/* Search */}
-          <div className="relative mb-5">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none"/>
-            <input
-              className="w-full bg-white border border-faint rounded-2xl pl-11 pr-10 py-3 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-pink focus:ring-2 focus:ring-pink/10 transition-all shadow-card"
-              placeholder="Search dishes..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            {search && (
-              <button onClick={() => setSearch('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors">
-                <X size={15}/>
+          {/* Search + view toggle */}
+          <div className="flex gap-2 mb-5">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none"/>
+              <input
+                className="w-full bg-white border border-faint rounded-2xl pl-11 pr-10 py-3 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-pink focus:ring-2 focus:ring-pink/10 transition-all shadow-card"
+                placeholder="Search dishes..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              {search && (
+                <button onClick={() => setSearch('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors">
+                  <X size={15}/>
+                </button>
+              )}
+            </div>
+            {/* View toggle */}
+            <div className="flex bg-white border border-faint rounded-2xl shadow-card overflow-hidden shrink-0">
+              <button onClick={() => setView('list')}
+                className={`w-11 h-11 flex items-center justify-center transition-colors ${view === 'list' ? 'bg-pink text-white' : 'text-muted hover:text-pink'}`}>
+                <List size={16}/>
               </button>
-            )}
+              <button onClick={() => setView('grid')}
+                className={`w-11 h-11 flex items-center justify-center transition-colors ${view === 'grid' ? 'bg-pink text-white' : 'text-muted hover:text-pink'}`}>
+                <LayoutGrid size={16}/>
+              </button>
+            </div>
           </div>
 
           {/* Mobile Category Pills */}
@@ -364,12 +460,20 @@ export default function RestaurantMenu() {
                     </div>
                   </div>
 
-                  {/* Cards */}
-                  <div className="bg-white rounded-3xl border border-faint shadow-card divide-y divide-faint overflow-hidden">
-                    {items.map(p => (
-                      <ProductCard key={p._id} product={p} isRestaurantOpen={restaurant.isOpen}/>
-                    ))}
-                  </div>
+                  {/* Cards — list or grid */}
+                  {view === 'list' ? (
+                    <div className="bg-white rounded-3xl border border-faint shadow-card divide-y divide-faint overflow-hidden">
+                      {items.map(p => (
+                        <ProductCard key={p._id} product={p} isRestaurantOpen={restaurant.isOpen}/>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {items.map(p => (
+                        <GridProductCard key={p._id} product={p} isRestaurantOpen={restaurant.isOpen}/>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

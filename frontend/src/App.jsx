@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth }     from './context/AuthContext'
+import { useNotifications }          from './hooks/useNotifications'
 import { CartProvider }              from './context/CartContext'
 import { WishlistProvider }          from './context/WishlistContext'
 import Layout                        from './components/layout/Layout'
@@ -9,10 +10,12 @@ import Login          from './pages/auth/Login'
 import AdminLogin     from './pages/auth/AdminLogin'
 import Register       from './pages/auth/Register'
 import ForgotPassword from './pages/auth/ForgotPassword'
-import ProtectedRoute, { GuestRoute, RoleRedirect, OwnerRoute } from './components/ProtectedRoutes'
+import ProtectedRoute, { GuestRoute, RoleRedirect, OwnerRoute, DriverRoute } from './components/ProtectedRoutes'
+import DriverOrders from './pages/driver/DriverOrders'
 import OwnerLayout    from './components/layout/OwnerLayout'
 import OwnerDashboard from './pages/owner/OwnerDashboard'
 import OwnerOrders    from './pages/owner/OwnerOrders'
+import OwnerReviews   from './pages/owner/OwnerReviews'
 import OwnerRestaurant from './pages/owner/OwnerRestaurant'
 import OwnerMenu      from './pages/owner/OwnerMenu'
 import OwnerItemForm  from './pages/owner/OwnerItemForm'
@@ -24,8 +27,11 @@ import RestaurantMenu from './pages/customer/RestaurantMenu'
 import ProductDetail  from './pages/customer/ProductDetail'
 import Cart           from './pages/customer/Cart'
 import Orders         from './pages/customer/Orders'
+import Reviews        from './pages/customer/Reviews'
 import Profile        from './pages/customer/Profile'
 import Wishlist       from './pages/customer/Wishlist'
+import PaymentSuccess from './pages/customer/PaymentSuccess'
+import PaymentFailed  from './pages/customer/PaymentFailed'
 
 import AdminDashboard   from './pages/admin/Dashboard'
 import AdminProducts    from './pages/admin/Products'
@@ -68,6 +74,9 @@ function AdminRoute({ children }) {
 // }
 
 function AppRoutes() {
+  const { user } = useAuth()
+  useNotifications(user?._id)   // connect socket & listen for order notifications
+
   return (
     <Layout>
       <Toaster position="top-right" gutter={8}
@@ -92,13 +101,19 @@ function AppRoutes() {
         <Route path="/register"        element={<GuestRoute><Register /></GuestRoute>} />
         <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
 
-        <Route path="/cart"     element={<PrivateRoute><Cart /></PrivateRoute>} />
+        <Route path="/cart"            element={<PrivateRoute><Cart /></PrivateRoute>} />
+        <Route path="/payment-success" element={<PaymentSuccess />} />
+        <Route path="/payment-failed"  element={<PaymentFailed />} />
         <Route path="/orders"   element={<PrivateRoute><Orders /></PrivateRoute>} />
+        <Route path="/reviews"  element={<PrivateRoute><Reviews /></PrivateRoute>} />
         <Route path="/profile"  element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
 
+        <Route path="/driver" element={<DriverRoute><DriverOrders /></DriverRoute>} />
+
         <Route path="/owner" element={<OwnerRoute><OwnerLayout><OwnerDashboard /></OwnerLayout></OwnerRoute>} />
-        <Route path="/owner/orders" element={<OwnerRoute><OwnerLayout><OwnerOrders /></OwnerLayout></OwnerRoute>} />
+        <Route path="/owner/orders"   element={<OwnerRoute><OwnerLayout><OwnerOrders /></OwnerLayout></OwnerRoute>} />
+        <Route path="/owner/reviews"  element={<OwnerRoute><OwnerLayout><OwnerReviews /></OwnerLayout></OwnerRoute>} />
         <Route path="/owner/restaurant" element={<OwnerRoute><OwnerLayout><OwnerRestaurant /></OwnerLayout></OwnerRoute>} />
         <Route path="/owner/menu"       element={<OwnerRoute><OwnerLayout><OwnerMenu /></OwnerLayout></OwnerRoute>} />
         <Route path="/owner/add-item"   element={<OwnerRoute><OwnerLayout><OwnerItemForm /></OwnerLayout></OwnerRoute>} />

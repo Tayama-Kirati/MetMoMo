@@ -5,9 +5,24 @@ import { useAuth } from '../context/AuthContext'
 export function RoleRedirect() {
   const { user, token } = useAuth()
   if (!token) return <Navigate to="/login" replace/>
-  if (user?.userRole === 'admin')            return <Navigate to="/admin" replace/>
-  if (user?.userRole === 'restaurant_owner') return <Navigate to="/owner" replace/>
+  if (user?.userRole === 'admin')            return <Navigate to="/admin"  replace/>
+  if (user?.userRole === 'restaurant_owner') return <Navigate to="/owner"  replace/>
+  if (user?.userRole === 'delivery_rider')   return <Navigate to="/driver" replace/>
   return <Navigate to="/" replace/>
+}
+
+/** Protect delivery-rider-only routes */
+export function DriverRoute({ children }) {
+  const { user, token, loading } = useAuth()
+  const location = useLocation()
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <span className="w-8 h-8 border-4 border-pink border-t-transparent rounded-full animate-spin"/>
+    </div>
+  )
+  if (!token) return <Navigate to="/login" state={{ from: location }} replace/>
+  if (user?.userRole !== 'delivery_rider') return <Navigate to="/" replace/>
+  return children
 }
 
 /** Protect restaurant-owner-only routes */
@@ -50,8 +65,9 @@ export default function ProtectedRoute({ children, admin = false }) {
 export function GuestRoute({ children }) {
   const { token, user } = useAuth()
   if (token) {
-    if (user?.userRole === 'admin')            return <Navigate to="/admin" replace/>
+    if (user?.userRole === 'admin')            return <Navigate to="/admin"  replace/>
     if (user?.userRole === 'restaurant_owner') return <Navigate to="/owner"  replace/>
+    if (user?.userRole === 'delivery_rider')   return <Navigate to="/driver" replace/>
     return <Navigate to="/" replace/>
   }
   return children

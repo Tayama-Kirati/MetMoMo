@@ -1,14 +1,15 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Store, UtensilsCrossed, PlusCircle, LogOut, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, Store, UtensilsCrossed, PlusCircle, LogOut, ClipboardList, Star } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
 const NAV = [
-  { to: '/owner',            icon: <LayoutDashboard size={18}/>, label: 'Dashboard',       exact: true  },
-  { to: '/owner/orders',     icon: <ClipboardList size={18}/>,   label: 'Orders',          exact: false },
-  { to: '/owner/restaurant', icon: <Store size={18}/>,           label: 'My Restaurant',   exact: false },
-  { to: '/owner/menu',       icon: <UtensilsCrossed size={18}/>, label: 'Menu Items',      exact: false },
-  { to: '/owner/add-item',   icon: <PlusCircle size={18}/>,      label: 'Add Food Item',   exact: false },
+  { to: '/owner',            icon: <LayoutDashboard size={18}/>, label: 'Dashboard',     exact: true  },
+  { to: '/owner/orders',     icon: <ClipboardList size={18}/>,   label: 'Orders',        exact: false },
+  { to: '/owner/reviews',    icon: <Star size={18}/>,            label: 'Reviews',       exact: false },
+  { to: '/owner/restaurant', icon: <Store size={18}/>,           label: 'My Restaurant', exact: false },
+  { to: '/owner/menu',       icon: <UtensilsCrossed size={18}/>, label: 'Menu Items',    exact: false },
+  { to: '/owner/add-item',   icon: <PlusCircle size={18}/>,      label: 'Add Food Item', exact: false },
 ]
 
 export default function OwnerLayout({ children }) {

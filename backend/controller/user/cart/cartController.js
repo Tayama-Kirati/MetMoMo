@@ -33,7 +33,7 @@ exports.getMyCartItems = async(req,res)=>{
   const userId = req.user.id
   const userData = await User.findById(userId).populate({
     path: "cart",
-    select : "-productStatus"
+    populate: { path: "restaurant", select: "name address emoji" },
   })
   res.status(200).json({
     message: "Cart Item has been fetched succesfully",

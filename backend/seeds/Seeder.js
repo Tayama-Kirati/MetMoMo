@@ -1,5 +1,6 @@
  
-require('dotenv').config()
+// require('dotenv').config()
+require('dotenv').config({ path: '../.env' })
 const mongoose = require('mongoose')
 const bcrypt   = require('bcryptjs')
 
@@ -9,7 +10,7 @@ const Review     = require('../models/reviewModel')
 const Order      = require('../models/orderSchema')
 const Restaurant = require('../models/restaurantModel')
 
-// ── Users ─────────────────────────────────────────────────────────────
+ 
 const USERS = [
   { userName: 'Admin User',   userEmail: 'admin@momogo.com',  userPhoneNumber: 9800000001, userPassword: bcrypt.hashSync('admin123', 10),    userRole: 'admin'    },
   { userName: 'Aarav Sharma', userEmail: 'aarav@test.com',    userPhoneNumber: 9841234567, userPassword: bcrypt.hashSync('password123', 10), userRole: 'customer' },
@@ -241,11 +242,11 @@ const REVIEW_MESSAGES = [
 
 async function seed() {
   try {
-    console.log('🔌 Connecting to database...')
+    console.log('Connecting to database...')
     await mongoose.connect(process.env.MONGO_URI)
     console.log('Connected!\n')
 
-    console.log('🗑️  Clearing existing data...')
+    console.log('Clearing existing data...')
     await Promise.all([
       User.deleteMany({}),
       Product.deleteMany({}),
@@ -256,7 +257,7 @@ async function seed() {
     console.log('Cleared!\n')
 
     // Users
-    console.log('👥 Seeding users...')
+    console.log('Seeding users...')
     const users      = await User.insertMany(USERS)
     const customers  = users.filter(u => u.userRole === 'customer')
     console.log(`${users.length} users created\n`)
@@ -305,17 +306,6 @@ async function seed() {
     }
     const orders = await Order.insertMany(orderData)
     console.log(`${orders.length} orders created\n`)
- 
-    console.log(`👥 Users:       ${users.length}`)
-    console.log(`🏪 Restaurants: ${restaurants.length}`)
-    console.log(`🍜 Products:    ${products.length}`)
-    console.log(`⭐ Reviews:     ${reviews.length}`)
-    console.log(`📦 Orders:      ${orders.length}`)
-    console.log('───────────────────────────────────────────────')
-    console.log('🔑 Login:  admin@momogo.com / admin123')
-    console.log('           aarav@test.com   / password123')
-    console.log('═══════════════════════════════════════════════\n')
-
     process.exit(0)
   } catch (err) {
     console.error('Seeder error:', err.message)

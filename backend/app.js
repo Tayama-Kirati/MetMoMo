@@ -14,17 +14,16 @@ const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-// Export io so controllers can emit events
+ 
 global._io = io;
 
 io.on("connection", (socket) => {
-  // Client sends their userId to join a personal room
   socket.on("join", (userId) => {
     if (userId) socket.join(userId)
   })
   socket.on("disconnect", () => {})
 });
-// ───────────────────────────────────────────────────────────
+ 
 
 app.use(cors({ origin: ["*"], credentials: true }));
 app.use(express.json());

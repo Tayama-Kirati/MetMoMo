@@ -1,4 +1,4 @@
-const Restaurant = require('../../../models/restaurantModel')
+
 const Product    = require('../../../models/productModel')
 const catchAsync = require('../../../services/catchAsync')
 const Restaurants = require('../../../models/restaurantModel')

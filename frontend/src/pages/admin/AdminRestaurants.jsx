@@ -25,7 +25,7 @@ export default function AdminRestaurants() {
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
-  const [modal, setModal]             = useState(null)   // 'create' | 'edit' | null
+  const [modal, setModal]             = useState(null)   
   const [form, setForm]               = useState(EMPTY)
   const [editId, setEditId]           = useState(null)
   const [coverFile, setCoverFile]     = useState(null)

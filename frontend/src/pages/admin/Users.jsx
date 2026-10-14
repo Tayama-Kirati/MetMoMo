@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trash2, Search, Users, Shield } from 'lucide-react'
+import { Trash2, Search, Users, Shield, Ban, CheckCircle } from 'lucide-react'
 import { api, ROUTES } from '../../services/api'
 import toast from 'react-hot-toast'
 
@@ -20,10 +20,17 @@ export default function AdminUsers() {
     setDeleting(null)
   }
 
+  const update = async (u, patch) => {
+    const { ok, data } = await api.patch(ROUTES.adminUser(u._id), patch)
+    if (ok) { setUsers(list => list.map(x => x._id === u._id ? data.data : x)); toast.success('User updated') }
+    else toast.error(data?.message || 'Could not update')
+  }
+
   const filtered = users.filter(u => u.userName?.toLowerCase().includes(search.toLowerCase()) || u.userEmail?.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div className="page-wrap">
+      <title>Users · Admin · MetMoMo</title>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div><h1 className="font-display font-black text-3xl text-ink">Users</h1><p className="text-muted mt-1">{users.length} registered users</p></div>
         <div className="relative w-full sm:w-72">
@@ -39,7 +46,7 @@ export default function AdminUsers() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-faint bg-pink-50/50">
-                {['User','Phone','Role','Joined',''].map(h=><th key={h} className="text-left px-5 py-3.5 text-xs font-display font-bold text-muted uppercase tracking-wider">{h}</th>)}
+                {['User','Phone','Role','Status','Joined',''].map(h=><th key={h} className="text-left px-5 py-3.5 text-xs font-display font-bold text-muted uppercase tracking-wider">{h}</th>)}
               </tr></thead>
               <tbody className="divide-y divide-faint">
                 {filtered.map(u=>(
@@ -52,12 +59,25 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-5 py-4 text-muted text-sm">{u.userPhoneNumber||'—'}</td>
                     <td className="px-5 py-4"><span className={`badge ${u.userRole==='admin'?'badge-pink':'badge-gray'} flex items-center gap-1 w-fit`}>{u.userRole==='admin'&&<Shield size={9}/>}{u.userRole}</span></td>
+                    <td className="px-5 py-4">
+                      {u.isBlocked ? <span className="badge-red">Blocked</span>
+                        : u.isApproved === false ? <span className="badge-yellow">Awaiting approval</span>
+                        : <span className="badge-green">Active</span>}
+                    </td>
                     <td className="px-5 py-4 text-muted text-sm">{u.createdAt?new Date(u.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
                     <td className="px-5 py-4">
                       {u.userRole !== 'admin' && (
+                        <div className="flex gap-2">
+                        {u.isApproved === false && (
+                          <button onClick={() => update(u, { isApproved: true })} title="Approve" aria-label="Approve"
+                            className="w-8 h-8 rounded-xl bg-green-50 text-green-600 flex items-center justify-center hover:bg-green-100"><CheckCircle size={13}/></button>
+                        )}
+                        <button onClick={() => update(u, { isBlocked: !u.isBlocked })} title={u.isBlocked ? 'Unblock' : 'Block'} aria-label={u.isBlocked ? 'Unblock' : 'Block'}
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center ${u.isBlocked ? 'bg-gray-100 text-gray-600' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}><Ban size={13}/></button>
                         <button onClick={()=>handleDelete(u._id)} disabled={deleting===u._id} className="w-8 h-8 rounded-xl bg-red-50 text-red-400 flex items-center justify-center hover:bg-red-100 transition-colors">
                           {deleting===u._id?<span className="w-3.5 h-3.5 border border-red-400 border-t-transparent rounded-full animate-spin"/>:<Trash2 size={13}/>}
                         </button>
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Upload, Save } from 'lucide-react'
+import { Upload, Save, PauseCircle, PlayCircle } from 'lucide-react'
 import { api } from '../../services/api'
 import toast from 'react-hot-toast'
 
@@ -9,6 +9,11 @@ const EMPTY = {
   minimumOrder: '100', isOpen: 'true', emoji: '🍜',
   openingHours: '9:00 AM – 10:00 PM',
 }
+
+const minutesFromNow = (minutes) => new Date(Date.now() + minutes * 60000).toISOString()
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const defaultWeek = () => DAYS.map((_, day) => ({ day, open: '09:00', close: '22:00', closed: false }))
 
 function Field({ label, required, children }) {
   return (
@@ -28,6 +33,18 @@ export default function OwnerRestaurant() {
   const [preview, setPreview]       = useState(null)
   const [saving, setSaving]         = useState(false)
   const [loading, setLoading]       = useState(true)
+  const [useWeekly, setUseWeekly]   = useState(false)
+  const [week, setWeek]             = useState(defaultWeek)
+
+  const setDay = (day, patch) => setWeek(w => w.map(d => d.day === day ? { ...d, ...patch } : d))
+
+  const pause = async (minutes) => {
+    const fd = new FormData()
+    fd.append('pausedUntil', minutes ? minutesFromNow(minutes) : '')
+    const { ok, data } = await api.patchForm('/owner/restaurant', fd)
+    if (ok) { setRestaurant(data.data); toast.success(minutes ? 'New orders paused' : 'Taking orders again') }
+    else toast.error(data?.message || 'Could not update')
+  }
 
   useEffect(() => {
     api.get('/owner/restaurant').then(({ ok, data }) => {
@@ -49,6 +66,10 @@ export default function OwnerRestaurant() {
           openingHours: d.openingHours,
         })
         setPreview(d.coverImage || null)
+        if (d.weeklyHours?.length) {
+          setUseWeekly(true)
+          setWeek(defaultWeek().map(def => ({ ...def, ...(d.weeklyHours.find(h => h.day === def.day) || {}) })))
+        }
       }
     }).finally(() => setLoading(false))
   }, [])
@@ -61,6 +82,7 @@ export default function OwnerRestaurant() {
     const fd = new FormData()
     Object.entries(form).forEach(([k, v]) => { if (v !== '') fd.append(k, v) })
     if (coverFile) fd.append('coverImage', coverFile)
+    if (restaurant) fd.append('weeklyHours', JSON.stringify(useWeekly ? week.map(({ day, open, close, closed }) => ({ day, open, close, closed })) : []))
 
     const { ok, data } = restaurant
       ? await api.patchForm('/owner/restaurant', fd)
@@ -85,6 +107,7 @@ export default function OwnerRestaurant() {
 
   return (
     <div className="page-wrap max-w-2xl">
+      <title>Restaurant settings · MetMoMo</title>
 
       <div className="mb-8">
         <h1 className="font-display font-black text-3xl text-ink">
@@ -96,6 +119,33 @@ export default function OwnerRestaurant() {
             : 'Fill in your restaurant details to get listed on MetMomo.'}
         </p>
       </div>
+
+      {restaurant && restaurant.isApproved === false && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6 text-sm text-yellow-800 font-medium">
+          ⏳ Your restaurant is waiting for admin approval. Customers will see it as soon as it's approved.
+        </div>
+      )}
+
+      {restaurant && (() => {
+        const paused = restaurant.pausedUntil && new Date(restaurant.pausedUntil) > new Date()
+        return (
+          <div className="bg-white rounded-3xl border border-faint shadow-card p-5 mb-6 flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[180px]">
+              <p className="font-display font-bold text-ink">{paused ? '⏸️ New orders paused' : '🟢 Taking orders'}</p>
+              <p className="text-xs text-muted">
+                {paused ? `Until ${new Date(restaurant.pausedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Kitchen too busy? Pause new orders for a while.'}
+              </p>
+            </div>
+            {paused ? (
+              <button type="button" onClick={() => pause(0)} className="btn-pink text-sm py-2"><PlayCircle size={15}/> Resume now</button>
+            ) : (
+              [[30, '30 min'], [60, '1 hour'], [180, '3 hours']].map(([m, l]) => (
+                <button key={m} type="button" onClick={() => pause(m)} className="btn-outline text-sm py-2"><PauseCircle size={14}/> {l}</button>
+              ))
+            )}
+          </div>
+        )
+      })()}
 
       {!restaurant && (
         <div className="bg-pink-50 border border-pink-200 rounded-2xl p-4 mb-6 text-sm text-pink-700 font-medium">
@@ -202,10 +252,36 @@ export default function OwnerRestaurant() {
             </Field>
           </div>
 
-          <Field label="Opening Hours">
+          <Field label="Opening Hours (shown to customers)">
             <input className="input-field" placeholder="9:00 AM – 10:00 PM"
               value={form.openingHours} onChange={set('openingHours')}/>
           </Field>
+
+          {restaurant && (
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-semibold text-ink cursor-pointer">
+                <input type="checkbox" checked={useWeekly} onChange={e => setUseWeekly(e.target.checked)} className="w-4 h-4 accent-pink-600"/>
+                Automatically open and close on a weekly schedule
+              </label>
+              {useWeekly && (
+                <div className="space-y-2">
+                  {week.map(d => (
+                    <div key={d.day} className="flex items-center gap-3 text-sm">
+                      <span className="w-10 font-bold text-ink">{DAYS[d.day]}</span>
+                      <input type="time" value={d.open} disabled={d.closed} onChange={e => setDay(d.day, { open: e.target.value })}
+                        className="input-field py-1.5 w-32" aria-label={`${DAYS[d.day]} opening time`}/>
+                      <span className="text-muted">–</span>
+                      <input type="time" value={d.close} disabled={d.closed} onChange={e => setDay(d.day, { close: e.target.value })}
+                        className="input-field py-1.5 w-32" aria-label={`${DAYS[d.day]} closing time`}/>
+                      <label className="flex items-center gap-1 text-xs text-muted cursor-pointer">
+                        <input type="checkbox" checked={d.closed} onChange={e => setDay(d.day, { closed: e.target.checked })} className="accent-pink-600"/> Closed
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end">

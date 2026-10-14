@@ -1,18 +1,48 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { api } from '../services/api'
+
 const AuthContext = createContext(null)
+
+const readToken = () => { try { return localStorage.getItem('mg_token') } catch { return null } }
+
 export function AuthProvider({ children }) {
   const [user, setUser]   = useState(null)
-  const [token, setToken] = useState(() => localStorage.getItem('mg_token'))
+  const [token, setToken] = useState(readToken)
   const [loading, setLoading] = useState(true)
-  useEffect(() => { token ? fetchProfile() : setLoading(false) }, [token])
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch('/api/profile', { headers: { Authorization: token } })
-      if (res.ok) { const d = await res.json(); setUser(d.data) } else logout()
-    } catch { logout() } finally { setLoading(false) }
+
+  const logout = useCallback(() => {
+    try { localStorage.removeItem('mg_token') } catch {}
+    setToken(null); setUser(null)
+  }, [])
+
+  const fetchProfile = useCallback(async () => {
+    const { ok, data, status } = await api.get('/profile')
+    if (ok) setUser(data.data)
+    else if (status === 401) logout()
+    setLoading(false)
+  }, [logout])
+
+  useEffect(() => {
+    if (token) fetchProfile()
+    else setLoading(false)
+  }, [token, fetchProfile])
+
+  // api.js fires this when the server rejects our token
+  useEffect(() => {
+    window.addEventListener('auth:expired', logout)
+    return () => window.removeEventListener('auth:expired', logout)
+  }, [logout])
+
+  const login = (t) => {
+    try { localStorage.setItem('mg_token', t) } catch {}
+    setLoading(true)
+    setToken(t)
   }
-  const login = (t) => { localStorage.setItem('mg_token', t); setToken(t) }
-  const logout = () => { localStorage.removeItem('mg_token'); setToken(null); setUser(null) }
-  return <AuthContext.Provider value={{ user, token, login, logout, loading, refetchUser: fetchProfile }}>{children}</AuthContext.Provider>
+
+  return (
+    <AuthContext.Provider value={{ user, token, login, logout, loading, refetchUser: fetchProfile }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 export const useAuth = () => useContext(AuthContext)

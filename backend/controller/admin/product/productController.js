@@ -1,7 +1,6 @@
 const Product    = require('../../../models/productModel')
 const catchAsync = require('../../../services/catchAsync')
-const path       = require('path')
-const fs         = require('fs')
+const { saveUpload, removeUpload } = require('../../../services/storage')
  
 exports.createProduct = catchAsync(async (req, res) => {
   const {
@@ -14,10 +13,7 @@ exports.createProduct = catchAsync(async (req, res) => {
     return res.status(400).json({ message: 'Please provide all required fields' })
   }
 
-  let productImage = ''
-  if (req.file) {
-    productImage = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/${req.file.filename}`
-  }
+  const productImage = await saveUpload(req.file)
 
   const product = await Product.create({
     productName,
@@ -37,6 +33,7 @@ exports.createProduct = catchAsync(async (req, res) => {
 exports.deleteProduct = catchAsync(async (req, res) => {
   const product = await Product.findByIdAndDelete(req.params.id)
   if (!product) return res.status(404).json({ message: 'Product not found' })
+  await removeUpload(product.productImage)
   return res.status(200).json({ message: 'Product deleted successfully' })
 })
 
@@ -64,13 +61,8 @@ exports.editProduct = catchAsync(async (req, res) => {
 
   let productImage = old.productImage
   if (req.file) {
-    // Delete old image from disk
-    if (old.productImage) {
-      const filename = path.basename(old.productImage)
-      const oldPath  = path.join(__dirname, '../../../uploads', filename)
-      fs.unlink(oldPath, err => { if (err) console.log('Image delete error:', err.message) })
-    }
-    productImage = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/${req.file.filename}`
+    await removeUpload(old.productImage)
+    productImage = await saveUpload(req.file)
   }
 
   const updated = await Product.findByIdAndUpdate(

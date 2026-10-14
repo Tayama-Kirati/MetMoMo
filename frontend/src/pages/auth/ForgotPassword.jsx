@@ -17,7 +17,7 @@ export default function ForgotPassword() {
     e.preventDefault()
     setLoading(true)
     const { ok, data } = await api.post(ROUTES.forgotPassword, { email })
-    if (ok) { toast.success('OTP sent!'); setStep(2) }
+    if (ok) { toast.success('If that email is registered, an OTP is on its way'); setStep(2) }
     else toast.error(data.message || 'Email not found')
     setLoading(false)
   }
@@ -35,6 +35,10 @@ export default function ForgotPassword() {
     e.preventDefault()
     if (passwords.newPassword !== passwords.confirmPassword) {
       toast.error("Passwords don't match")
+      return
+    }
+    if (passwords.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters')
       return
     }
     setLoading(true)
@@ -130,10 +134,13 @@ export default function ForgotPassword() {
                   </label>
                   <input
                     className="w-full h-14 px-3.5 rounded-xl border border-pink-300 bg-white text-3xl font-bold text-center tracking-[0.5em] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-pink-500 focus:bg-white transition"
-                    type="number"
-                    placeholder="••••"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                    placeholder="••••••"
                     value={otp}
-                    onChange={e => setOtp(e.target.value)}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
                     required
                     autoFocus
                   />

@@ -1,16 +1,21 @@
 const router = require("express").Router();
 const isAuthenticated = require("../../middleware/isAuthenticated");
 const catchAsync = require("../../services/catchAsync");
-const { createOrder, getMyOrders, getAllOrders, markDelivered, cancelOrder } = require("../../controller/user/order/orderController");
+const validate = require("../../middleware/validate");
+const {
+  quoteOrder, createOrder, getMyOrders, getMyOrder, reorder, markDelivered, cancelOrder,
+} = require("../../controller/user/order/orderController");
 
-// GET  /api/orders              → my orders
-// POST /api/orders/create       → create order
-// GET  /api/orders/all          → admin: all orders
-// PATCH /api/orders/:id/delivered → customer confirms receipt
-router.route("/").get(isAuthenticated, catchAsync(getMyOrders));
-router.route("/create").post(isAuthenticated, catchAsync(createOrder));
-router.route("/all").get(isAuthenticated, catchAsync(getAllOrders));
-router.route("/:id/delivered").patch(isAuthenticated, catchAsync(markDelivered));
-router.route("/:id/cancel").delete(isAuthenticated, catchAsync(cancelOrder));
+const orderBody = validate({ items: { type: "array", min: 1 }, shippingAddress: { type: "string", max: 300 } });
+
+router.use(isAuthenticated);
+
+router.get("/",                  catchAsync(getMyOrders));
+router.post("/quote",            validate({ items: { type: "array", min: 1 } }), catchAsync(quoteOrder));
+router.post("/create",           orderBody, catchAsync(createOrder));
+router.get("/:id",               catchAsync(getMyOrder));
+router.post("/:id/reorder",      catchAsync(reorder));
+router.patch("/:id/delivered",   catchAsync(markDelivered));
+router.delete("/:id/cancel",     catchAsync(cancelOrder));
 
 module.exports = router;

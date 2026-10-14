@@ -1,7 +1,13 @@
 import Navbar from './Navbar'
 import { Link } from 'react-router-dom'
+import { usePrefs } from '../../context/PreferencesContext'
+import ChatWidget from '../ChatWidget'
+import { useAuth } from '../../context/AuthContext'
 
 export default function Layout({ children }) {
+  const { t } = usePrefs()
+  const { user } = useAuth()
+  const showAssistant = !user || user.userRole === 'customer'
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -16,13 +22,13 @@ export default function Layout({ children }) {
               Met<span className="text-pink">MoMo</span>
             </span>
             </div>
-            <p className="text-gray-600 text-sm leading-relaxed mb-4">Authentic Nepali food ordering system, delivering delicious food to your doorstep.</p>
-            <p className="text-gray-500 text-xs">SERVICE HOURS<br/>07 A.M. TO 10P.M. (NST)</p>
+            <p className="text-gray-600 text-sm leading-relaxed mb-4">{t('footerTagline')}</p>
+            <p className="text-gray-500 text-xs">{t('serviceHours')}<br/>07 A.M. TO 10P.M. (NST)</p>
           </div>
           {[
             { title: 'WE\'RE MetMomo', links: ['About us', 'Delivery Charges', 'Get Help', 'Contact Us'] },
-            { title: 'Quick Links', links: ['Home', 'Restaurants', 'My Orders'] },
-            { title: 'Support', links: ['Help Center', 'Privacy Policy', 'Terms of Service', 'Refund Policy'] },
+            { title: t('quickLinks'), links: [t('home'), t('restaurants'), t('myOrders')] },
+            { title: t('support'), links: ['Help Center', 'Privacy Policy', 'Terms of Service', 'Refund Policy'] },
           ].map(col => (
             <div key={col.title}>
               <h4 className="font-display font-bold text-pink-500 text-sm mb-4">{col.title}</h4>
@@ -39,6 +45,7 @@ export default function Layout({ children }) {
           </div>
         </div>
       </footer>
+      {showAssistant && <ChatWidget />}
     </div>
   )
 }

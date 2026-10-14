@@ -196,6 +196,12 @@ export default function RestaurantMenu() {
   const [view, setView]             = useState('list') // 'list' | 'grid'
   const categoryRefs = useRef({})
   const contentRef   = useRef(null)
+  const [summary, setSummary] = useState('')
+
+  useEffect(() => {
+    setSummary('')
+    api.get(ROUTES.reviewSummary(id)).then(({ ok, data }) => { if (ok) setSummary(data.data?.summary || '') })
+  }, [id])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -253,9 +259,12 @@ export default function RestaurantMenu() {
   )
 
   const availableCount = products.filter(p => p.productStatus === 'available').length
+  const accepting = restaurant.acceptingOrders ?? restaurant.isOpen
 
   return (
     <div>
+      <title>{`${restaurant.name} – Order online · MetMoMo`}</title>
+      <meta name="description" content={`${restaurant.name}: ${restaurant.description || 'Order momos and Nepali food'} · Delivery in ${restaurant.deliveryTime || '30-45'} min.`} />
       {/* ── Hero Banner ── */}
       <div className="relative h-64 sm:h-80 overflow-hidden bg-gradient-to-br from-pink-200 to-rose-300">
         {restaurant.coverImage ? (
@@ -291,10 +300,10 @@ export default function RestaurantMenu() {
         )}
 
         {/* Closed overlay */}
-        {!restaurant.isOpen && (
+        {!accepting && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
             <span className="bg-white/20 border border-white/40 text-white font-display font-bold text-2xl px-8 py-3 rounded-2xl backdrop-blur-sm">
-              Currently Closed
+              {restaurant.isOpen ? 'Not taking orders right now' : 'Currently Closed'}
             </span>
           </div>
         )}
@@ -310,8 +319,8 @@ export default function RestaurantMenu() {
                 {restaurant.isPopular && (
                   <span className="text-[10px] font-bold bg-orange-400 text-white px-2 py-0.5 rounded-full">🔥 Popular</span>
                 )}
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${restaurant.isOpen ? 'bg-green-400 text-green-900' : 'bg-gray-400 text-white'}`}>
-                  {restaurant.isOpen ? '● Open' : '● Closed'}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${accepting ? 'bg-green-400 text-green-900' : 'bg-gray-400 text-white'}`}>
+                  {accepting ? '● Open' : '● Closed'}
                 </span>
               </div>
               <h1 className="font-display font-black text-white text-3xl leading-tight drop-shadow">{restaurant.name}</h1>
@@ -331,6 +340,19 @@ export default function RestaurantMenu() {
           </div>
         </div>
       </div>
+
+      {summary && (
+        <div className="wrap pt-5">
+          <div className="card p-4 flex gap-3 items-start">
+            <span className="text-xl">✨</span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-pink mb-1">What customers say</p>
+              <p className="text-sm text-ink leading-relaxed">{summary}</p>
+              <p className="text-[10px] text-muted mt-1">AI summary of recent reviews</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Info Bar ── */}
       <div className="bg-white border-b border-faint">

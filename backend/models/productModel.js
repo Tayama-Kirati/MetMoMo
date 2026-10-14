@@ -28,6 +28,15 @@ const productSchema = new Schema({
     required: [true, 'Product Quantity must be provided'],
   },
   productImage: String,
+  isVeg: {
+    type: Boolean,
+    default: false,
+  },
+  spiceLevel: {
+    type: String,
+    enum: ['mild', 'medium', 'hot', 'extra-hot'],
+    default: 'medium',
+  },
 
    
   restaurant: {
@@ -36,6 +45,10 @@ const productSchema = new Schema({
     default: null,
   },
 }, { timestamps: true })
+
+productSchema.index({ restaurant: 1, productStatus: 1 })
+productSchema.index({ productCategory: 1 })
+productSchema.index({ productName: 'text', productDescription: 'text', productCategory: 'text' })
 
 const Products = mongoose.model('Product', productSchema)
 module.exports = Products

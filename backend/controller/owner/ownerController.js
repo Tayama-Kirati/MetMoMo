@@ -3,8 +3,25 @@ const Product    = require('../../models/productModel')
 const Order      = require('../../models/orderSchema')
 const Review     = require('../../models/reviewModel')
 const catchAsync = require('../../services/catchAsync')
-const path       = require('path')
-const fs         = require('fs')
+const { saveUpload, removeUpload } = require('../../services/storage')
+const { setStatus } = require('../../services/orders')
+const ai         = require('../../services/ai')
+
+// Orders still waiting on an online payment are hidden from restaurants
+const VISIBLE_PAYMENT = {
+  $or: [{ 'paymentDetails.method': 'COD' }, { 'paymentDetails.status': { $in: ['paid', 'refund_pending', 'refunded'] } }],
+}
+
+// Orders for this restaurant (new orders carry `restaurant`; older ones only reference products)
+async function restaurantOrderFilter(restaurant) {
+  const productIds = (await Product.find({ restaurant: restaurant._id }).select('_id')).map(p => p._id)
+  return {
+    $and: [
+      { $or: [{ restaurant: restaurant._id }, { restaurant: { $exists: false }, 'items.product': { $in: productIds } }] },
+      VISIBLE_PAYMENT,
+    ],
+  }
+}
 
 // GET /api/owner/restaurant  — get the logged-in owner's restaurant
 exports.getMyRestaurant = catchAsync(async (req, res) => {
@@ -28,10 +45,7 @@ exports.createMyRestaurant = catchAsync(async (req, res) => {
     return res.status(400).json({ message: 'Please provide name, description and address' })
   }
 
-  let coverImage = ''
-  if (req.files?.coverImage?.[0]) {
-    coverImage = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/${req.files.coverImage[0].filename}`
-  }
+  const coverImage = await saveUpload(req.files?.coverImage?.[0])
 
   const restaurant = await Restaurant.create({
     name, description, address,
@@ -46,9 +60,10 @@ exports.createMyRestaurant = catchAsync(async (req, res) => {
     emoji:        emoji  || '🍜',
     openingHours: openingHours || '8:00 AM – 10:00 PM',
     owner:        req.user._id,
+    isApproved:   false,
   })
 
-  res.status(201).json({ message: 'Restaurant created!', data: restaurant })
+  res.status(201).json({ message: 'Restaurant created! It will be visible to customers once an admin approves it.', data: restaurant })
 })
 
 // PATCH /api/owner/restaurant  — update owner's own restaurant
@@ -59,13 +74,21 @@ exports.updateMyRestaurant = catchAsync(async (req, res) => {
   const allowed = [
     'name','description','address','phone','email','cuisine',
     'deliveryTime','deliveryFee','minimumOrder','isOpen','emoji','openingHours',
+    'weeklyHours','pausedUntil',
   ]
   allowed.forEach(key => {
-    if (req.body[key] !== undefined) restaurant[key] = req.body[key]
+    if (req.body[key] === undefined) return
+    let value = req.body[key]
+    // multipart forms send arrays/objects as JSON strings
+    if (['weeklyHours'].includes(key) && typeof value === 'string') value = JSON.parse(value)
+    if (key === 'cuisine' && typeof value === 'string') value = value.split(',').map(s => s.trim()).filter(Boolean)
+    if (key === 'pausedUntil' && !value) value = null
+    restaurant[key] = value
   })
 
   if (req.files?.coverImage?.[0]) {
-    restaurant.coverImage = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/${req.files.coverImage[0].filename}`
+    await removeUpload(restaurant.coverImage)
+    restaurant.coverImage = await saveUpload(req.files.coverImage[0])
   }
 
   await restaurant.save()
@@ -88,15 +111,12 @@ exports.createMyProduct = catchAsync(async (req, res) => {
   const restaurant = await Restaurant.findOne({ owner: req.user._id })
   if (!restaurant) return res.status(400).json({ message: 'Create your restaurant first' })
 
-  const { productName, productDescription, productPrice, productCategory, productStatus, productQuantity } = req.body
+  const { productName, productDescription, productPrice, productCategory, productStatus, productQuantity, isVeg, spiceLevel } = req.body
   if (!productName || !productDescription || !productPrice || !productCategory || !productQuantity) {
     return res.status(400).json({ message: 'Please provide all required fields' })
   }
 
-  let productImage = ''
-  if (req.file) {
-    productImage = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/${req.file.filename}`
-  }
+  const productImage = await saveUpload(req.file)
 
   const product = await Product.create({
     productName, productDescription,
@@ -105,6 +125,8 @@ exports.createMyProduct = catchAsync(async (req, res) => {
     productStatus:   productStatus || 'available',
     productQuantity: Number(productQuantity),
     productImage,
+    isVeg:      isVeg === true || isVeg === 'true',
+    spiceLevel: spiceLevel || 'medium',
     restaurant: restaurant._id,
   })
 
@@ -119,21 +141,20 @@ exports.updateMyProduct = catchAsync(async (req, res) => {
   const product = await Product.findOne({ _id: req.params.id, restaurant: restaurant._id })
   if (!product) return res.status(404).json({ message: 'Product not found' })
 
-  const { productName, productDescription, productPrice, productCategory, productStatus, productQuantity } = req.body
+  const { productName, productDescription, productPrice, productCategory, productStatus, productQuantity, isVeg, spiceLevel } = req.body
 
   let productImage = product.productImage
   if (req.file) {
-    if (product.productImage) {
-      const oldPath = path.join(__dirname, '../../uploads', path.basename(product.productImage))
-      fs.unlink(oldPath, () => {})
-    }
-    productImage = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/${req.file.filename}`
+    await removeUpload(product.productImage)
+    productImage = await saveUpload(req.file)
   }
 
   const updated = await Product.findByIdAndUpdate(
     req.params.id,
     { productName, productDescription, productPrice: Number(productPrice),
-      productCategory, productStatus, productQuantity: Number(productQuantity), productImage },
+      productCategory, productStatus, productQuantity: Number(productQuantity), productImage,
+      ...(isVeg !== undefined && { isVeg: isVeg === true || isVeg === 'true' }),
+      ...(spiceLevel && { spiceLevel }) },
     { new: true, runValidators: true }
   )
 
@@ -182,61 +203,83 @@ exports.getMyRestaurantReviews = catchAsync(async (req, res) => {
   res.status(200).json({ message: 'Reviews fetched', data: reviews })
 })
 
-// GET /api/owner/orders  — all orders that contain this owner's products
+// PATCH /api/owner/reviews/:id/reply  — public reply to a customer review
+exports.replyToReview = catchAsync(async (req, res) => {
+  const restaurant = await Restaurant.findOne({ owner: req.user._id })
+  if (!restaurant) return res.status(404).json({ message: 'No restaurant found' })
+
+  const review = await Review.findById(req.params.id).populate('productId', 'restaurant')
+  if (!review || String(review.productId?.restaurant) !== String(restaurant._id)) {
+    return res.status(404).json({ message: 'Review not found' })
+  }
+
+  const text = String(req.body.text || '').trim().slice(0, 1000)
+  review.ownerReply = text ? { text, at: new Date() } : undefined
+  await review.save()
+  res.status(200).json({ message: text ? 'Reply posted' : 'Reply removed', data: review })
+})
+
+// POST /api/owner/ai/describe  — AI-written menu description
+exports.describeItem = catchAsync(async (req, res) => {
+  const { productName, productCategory, notes } = req.body
+  if (!productName?.trim()) return res.status(400).json({ message: 'Provide productName' })
+  if (!ai.isEnabled()) return res.status(503).json({ message: 'AI is not configured on this server' })
+
+  const description = await ai.ask({
+    system: 'You write short, appetising menu descriptions for a Nepali food delivery app. Plain text only: one or two sentences, at most 35 words, no emojis, no quotation marks, no made-up claims about awards or sourcing.',
+    messages: [{
+      role: 'user',
+      content: `Item: ${String(productName).slice(0, 100)}\nCategory: ${String(productCategory || '').slice(0, 50)}\nOwner notes: ${String(notes || '').slice(0, 300)}`,
+    }],
+    maxTokens: 1024,
+  })
+  res.status(200).json({ data: { description } })
+})
+
+// GET /api/owner/orders  — orders for this owner's restaurant
 exports.getMyOrders = catchAsync(async (req, res) => {
   const restaurant = await Restaurant.findOne({ owner: req.user._id })
   if (!restaurant) return res.status(404).json({ message: 'No restaurant found' })
 
-  const myProducts = await Product.find({ restaurant: restaurant._id }).select('_id')
-  const productIds = myProducts.map(p => p._id)
-
-  const orders = await Order.find({ 'items.product': { $in: productIds } })
+  const orders = await Order.find(await restaurantOrderFilter(restaurant))
     .populate({ path: 'items.product', select: 'productName productPrice productImage productCategory' })
     .populate({ path: 'user', select: 'userName userEmail userPhoneNumber' })
+    .populate({ path: 'driver', select: 'userName userPhoneNumber' })
     .sort({ createdAt: -1 })
+    .limit(500)
 
   res.status(200).json({ message: 'Orders fetched', data: orders })
 })
 
-// PATCH /api/owner/orders/:id/status  — update order status
-const ALLOWED_STATUSES = ['pending', 'confirmed', 'preparation', 'ontheway', 'delivered', 'cancelled']
+// What an owner may move an order to, from each status
+const OWNER_TRANSITIONS = {
+  pending:     ['confirmed', 'cancelled'],
+  confirmed:   ['preparation', 'cancelled'],
+  preparation: ['ontheway', 'cancelled'],
+  ontheway:    [],          // rider confirms delivery with the customer's code
+  delivered:   [],
+  cancelled:   [],
+}
 
+// PATCH /api/owner/orders/:id/status
 exports.updateOrderStatus = catchAsync(async (req, res) => {
   const { status } = req.body
-  if (!ALLOWED_STATUSES.includes(status)) {
-    return res.status(400).json({ message: 'Invalid status' })
-  }
-
   const restaurant = await Restaurant.findOne({ owner: req.user._id })
   if (!restaurant) return res.status(404).json({ message: 'No restaurant found' })
 
-  const myProducts = await Product.find({ restaurant: restaurant._id }).select('_id')
-  const productIds = myProducts.map(p => p._id.toString())
-
-  const order = await Order.findById(req.params.id)
+  const order = await Order.findOne({ _id: req.params.id, ...(await restaurantOrderFilter(restaurant)) })
   if (!order) return res.status(404).json({ message: 'Order not found' })
 
-  const belongsToOwner = order.items.some(item => productIds.includes(item.product?.toString()))
-  if (!belongsToOwner) return res.status(403).json({ message: 'Not your order' })
-
-  order.orderStatus = status
-  await order.save()
-
-  // Notify the customer via Socket.io
-  const NOTIFY = {
-    confirmed: { title: 'Order Confirmed! ✅', body: `${restaurant.name} has confirmed your order.` },
-    ontheway:  { title: 'Order On the Way! 🛵', body: `Your order from ${restaurant.name} is on its way to you!` },
-    delivered: { title: 'Order Delivered! 🏠', body: `Your order from ${restaurant.name} has been delivered.` },
-    cancelled: { title: 'Order Cancelled', body: `Your order from ${restaurant.name} was cancelled.` },
+  if (!(OWNER_TRANSITIONS[order.orderStatus] || []).includes(status)) {
+    return res.status(400).json({ message: `Cannot change order from ${order.orderStatus} to ${status}` })
   }
-  if (NOTIFY[status] && global._io) {
-    global._io.to(order.user.toString()).emit('order:status', {
-      orderId: order._id,
-      status,
-      ...NOTIFY[status],
-    })
+  // Without an assigned rider the owner can't hand the order over
+  if (status === 'ontheway' && !order.driver) {
+    return res.status(400).json({ message: 'Wait for a rider to accept this order first' })
   }
+  if (!order.restaurant) order.restaurant = restaurant._id
 
+  await setStatus(order, status, req.user._id, restaurant.name)
   res.status(200).json({ message: 'Status updated', data: order })
 })
 
@@ -246,13 +289,11 @@ exports.getFinance = catchAsync(async (req, res) => {
   if (!restaurant) return res.status(404).json({ message: 'No restaurant found' })
 
   const myProducts = await Product.find({ restaurant: restaurant._id }).select('_id productName productPrice')
-  const productIds = myProducts.map(p => p._id)
 
-  // All delivered orders containing this restaurant's products
   const orders = await Order.find({
-    'items.product': { $in: productIds },
+    ...(await restaurantOrderFilter(restaurant)),
     orderStatus: { $in: ['delivered', 'pending', 'confirmed', 'preparation', 'ontheway'] },
-  }).select('totalAmount orderStatus createdAt items').lean()
+  }).select('totalAmount subtotal orderStatus createdAt items').lean()
 
   const deliveredOrders = orders.filter(o => o.orderStatus === 'delivered')
   const activeOrders    = orders.filter(o => o.orderStatus !== 'delivered')
@@ -292,6 +333,26 @@ exports.getFinance = catchAsync(async (req, res) => {
     monthly.push({ label, revenue: sum(inRange(deliveredOrders, mStart, mEnd)), orders: inRange(deliveredOrders, mStart, mEnd).length })
   }
 
+  // Best sellers by quantity and revenue (delivered orders)
+  const productNames = new Map(myProducts.map(p => [String(p._id), p]))
+  const sellers = new Map()
+  for (const o of deliveredOrders) {
+    for (const it of o.items) {
+      const id = String(it.product)
+      const p  = productNames.get(id)
+      if (!p) continue
+      const row = sellers.get(id) || { productId: id, name: it.name || p.productName, quantity: 0, revenue: 0 }
+      row.quantity += it.quantity
+      row.revenue  += (it.price ?? p.productPrice) * it.quantity
+      sellers.set(id, row)
+    }
+  }
+  const bestSellers = [...sellers.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 5)
+
+  // Busiest hours of the day (all non-cancelled orders)
+  const busiestHours = Array.from({ length: 24 }, (_, hour) => ({ hour, orders: 0 }))
+  orders.forEach(o => { busiestHours[new Date(o.createdAt).getHours()].orders++ })
+
   res.status(200).json({
     message: 'Finance data',
     data: {
@@ -309,6 +370,8 @@ exports.getFinance = catchAsync(async (req, res) => {
       daily,
       weekly,
       monthly,
+      bestSellers,
+      busiestHours,
     },
   })
 })

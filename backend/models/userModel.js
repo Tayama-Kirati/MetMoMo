@@ -7,9 +7,9 @@ const userSchema = new Schema({
   firstName:       { type: String, default: '' },
   lastName:        { type: String, default: '' },
   dateOfBirth:     { type: Date },
-  userEmail:       { type: String, required: [true, 'Email must be provided'] },
+  userEmail:       { type: String, required: [true, 'Email must be provided'], lowercase: true, trim: true, unique: true },
   userPhoneNumber: { type: String, default: '' },
-  userPassword:    { type: String, required: [true, 'Password must be provided'] },
+  userPassword:    { type: String, required: [true, 'Password must be provided'], select: false },
   profileImage:    { type: String, default: '' },
 
   // ── ACCOUNT ────────────────────────────────────────────
@@ -20,6 +20,9 @@ const userSchema = new Schema({
   },
   isVerified: { type: Boolean, default: false },
   isBlocked:  { type: Boolean, default: false },
+  // Riders need admin approval before they can take deliveries
+  isApproved: { type: Boolean, default: true },
+  passwordChangedAt: { type: Date },
   lastLogin:  { type: Date },
 
   // ── ADDRESS ────────────────────────────────────────────
@@ -30,6 +33,15 @@ const userSchema = new Schema({
   postalCode:           { type: String, default: '' },
   landmark:             { type: String, default: '' },
   deliveryInstructions: { type: String, default: '' },
+  addresses: [{
+    label:    { type: String, default: 'Home' },
+    street:   { type: String, required: true },
+    landmark: { type: String, default: '' },
+    city:     { type: String, default: 'Kathmandu' },
+    lat: Number,
+    lng: Number,
+    isDefault: { type: Boolean, default: false },
+  }],
 
   // ── PREFERENCES ────────────────────────────────────────
   preferences: {
@@ -50,7 +62,12 @@ const userSchema = new Schema({
 
   // ── AUTH HELPERS ───────────────────────────────────────
   otp:           { type: Number,  select: false },
+  otpExpires:    { type: Date,    select: false },
+  otpAttempts:   { type: Number,  default: 0, select: false },
   otpIsVerified: { type: Boolean, default: false, select: false },
+
+  // ── LOYALTY ────────────────────────────────────────────
+  loyaltyPoints: { type: Number, default: 0 },
 
   // ── RELATIONS ──────────────────────────────────────────
   cart: [{ type: Schema.Types.ObjectId, ref: 'Product' }],

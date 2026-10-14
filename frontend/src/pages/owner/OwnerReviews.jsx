@@ -2,6 +2,44 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Star, RefreshCw, MessageSquare } from 'lucide-react'
 import { api } from '../../services/api'
+import toast from 'react-hot-toast'
+
+function ReplyBox({ review, onSaved }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState(review.ownerReply?.text || '')
+  const [saving, setSaving] = useState(false)
+
+  const save = async (value) => {
+    setSaving(true)
+    const { ok, data } = await api.patch(`/owner/reviews/${review._id}/reply`, { text: value })
+    if (ok) { toast.success(data.message); onSaved(data.data.ownerReply); setOpen(false) }
+    else toast.error(data?.message || 'Could not save reply')
+    setSaving(false)
+  }
+
+  if (!open) return review.ownerReply?.text ? (
+    <div className="mt-3 pl-3 border-l-2 border-pink-200">
+      <p className="text-xs font-bold text-pink">Your reply</p>
+      <p className="text-sm text-slate">{review.ownerReply.text}</p>
+      <button onClick={() => setOpen(true)} className="text-xs text-muted hover:text-pink mt-1">Edit</button>
+    </div>
+  ) : (
+    <button onClick={() => setOpen(true)} className="mt-2 text-xs font-bold text-pink hover:underline">Reply publicly</button>
+  )
+
+  return (
+    <div className="mt-3 space-y-2">
+      <textarea value={text} onChange={e => setText(e.target.value)} maxLength={1000} rows={3}
+        placeholder="Thank the customer or respond to their feedback…" aria-label="Reply"
+        className="input-field text-sm" />
+      <div className="flex gap-2">
+        <button onClick={() => save(text)} disabled={saving || !text.trim()} className="btn-pink text-xs py-1.5 px-3">Post reply</button>
+        {review.ownerReply?.text && <button onClick={() => save('')} disabled={saving} className="text-xs text-red-500 px-2">Remove</button>}
+        <button onClick={() => setOpen(false)} className="text-xs text-muted px-2">Cancel</button>
+      </div>
+    </div>
+  )
+}
 
 function StarRow({ rating, size = 14 }) {
   return (
@@ -42,6 +80,7 @@ export default function OwnerReviews() {
 
   return (
     <div className="page-wrap max-w-3xl mx-auto">
+      <title>Reviews · Restaurant dashboard</title>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -51,7 +90,7 @@ export default function OwnerReviews() {
           </h1>
           <p className="text-muted text-sm mt-0.5">{reviews.length} review{reviews.length !== 1 ? 's' : ''} total</p>
         </div>
-        <button onClick={load} className="btn-ghost gap-1.5 text-sm">
+        <button onClick={load} className="btn-ghost-pink gap-1.5 text-sm">
           <RefreshCw size={13}/> Refresh
         </button>
       </div>
@@ -151,6 +190,7 @@ export default function OwnerReviews() {
                   </div>
                 </div>
                 <p className="text-sm text-slate mt-2 italic">"{r.message}"</p>
+                <ReplyBox review={r} onSaved={(ownerReply) => setReviews(list => list.map(x => x._id === r._id ? { ...x, ownerReply } : x))} />
               </div>
             </div>
           ))}

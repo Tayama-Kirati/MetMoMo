@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'public/sw.js']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -24,6 +24,12 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Empty catch blocks are used deliberately for best-effort browser APIs
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      // Data loading in effects is the established pattern across these pages
+      'react-hooks/set-state-in-effect': 'warn',
+      // Context files export a provider plus its hook
+      'react-refresh/only-export-components': 'warn',
     },
   },
 ])

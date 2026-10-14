@@ -6,6 +6,7 @@ const {
   createReview,
   deleteReview,
   getMyReviews,
+  reportReview,
 } = require("../../controller/user/review/reviewController");
 
 // GET    /api/reviews/reviews       → my reviews (auth required)
@@ -19,5 +20,7 @@ router.route("/reviews/:id")
   .get(catchAsync(getProductReview))
   .post(isAuthenticated, catchAsync(createReview))
   .delete(isAuthenticated, catchAsync(deleteReview));
+
+router.post("/reviews/:id/report", isAuthenticated, catchAsync(reportReview));
 
 module.exports = router;

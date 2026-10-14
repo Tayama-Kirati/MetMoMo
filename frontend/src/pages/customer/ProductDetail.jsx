@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ShoppingCart, Heart, Star, ChevronLeft, Send, Plus, Minus, Share2 } from 'lucide-react'
+import { ShoppingCart, Heart, Star, ChevronLeft, Send, Plus, Minus, Share2, Flag } from 'lucide-react'
 import { api, ROUTES } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
@@ -12,7 +12,6 @@ export default function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { token } = useAuth()
-  const { addToCart } = useCart()
   const { toggle, isWishlisted } = useWishlist()
   const [product, setProduct] = useState(null)
   const [reviews, setReviews] = useState([])
@@ -37,12 +36,23 @@ export default function ProductDetail() {
     window.scrollTo(0, 0)
   }, [id])
 
+  const { addToCart: _add, cartItems, setQuantity } = useCart()
   const handleAdd = async () => {
     if (!token) { toast.error('Please login'); return }
     setAdding(true)
-    for (let i = 0; i < qty; i++) await addToCart(product._id)
-    toast.success(`${qty}× ${product.productName} added! 🛒`)
+    const inCart = cartItems.filter(p => p._id === product._id).length
+    const res = inCart ? { ok: true } : await _add(product._id)
+    if (res.ok && (inCart + qty > 1 || inCart)) await setQuantity(product._id, Math.min(20, inCart + qty))
+    if (res.ok) toast.success(`${qty}× ${product.productName} added! 🛒`)
     setAdding(false)
+  }
+
+  const reportReview = async (reviewId) => {
+    if (!token) { toast.error('Please login to report'); return }
+    const reason = prompt('Why are you reporting this review? (optional)')
+    if (reason === null) return
+    const { ok, data } = await api.post(ROUTES.reportReview(reviewId), { reason })
+    if (ok) toast.success(data.message); else toast.error(data?.message || 'Could not report')
   }
 
   const handleReview = async (e) => {
@@ -77,6 +87,8 @@ export default function ProductDetail() {
 
   return (
     <div className="page-wrap">
+      <title>{`${product.productName} – NPR ${product.productPrice} · MetMoMo`}</title>
+      <meta name="description" content={product.productDescription?.slice(0, 155)} />
       <nav className="flex items-center gap-2 text-sm text-muted mb-8">
         <Link to="/" className="hover:text-pink transition-colors">Home</Link><span>/</span>
         <Link to={`/restaurants/${product.restaurant?._id}`} className="hover:text-pink transition-colors">
@@ -101,7 +113,7 @@ export default function ProductDetail() {
             <span className="badge-pink">{product.productCategory}</span>
             <span className={`badge ${available ? 'badge-green' : 'badge-gray'}`}>{available ? '✓ Available' : 'Unavailable'}</span>
             {product.isVeg && <span className="badge-green">🥬 Veg</span>}
-            {product.isSpicy && <span className="badge badge-red">🌶️ Spicy</span>}
+            {['hot', 'extra-hot'].includes(product.spiceLevel) && <span className="badge badge-red">🌶️ {product.spiceLevel}</span>}
           </div>
 
           <h1 className="font-display font-black text-3xl md:text-4xl text-ink leading-tight mb-3">{product.productName}</h1>
@@ -157,6 +169,17 @@ export default function ProductDetail() {
                     </div>
                   </div>
                   <p className="text-muted text-sm leading-relaxed">"{r.message}"</p>
+                  {r.ownerReply?.text && (
+                    <div className="mt-3 ml-4 pl-3 border-l-2 border-pink-200">
+                      <p className="text-xs font-bold text-pink mb-0.5">Reply from {product.restaurant?.name || 'the restaurant'}</p>
+                      <p className="text-sm text-slate">{r.ownerReply.text}</p>
+                    </div>
+                  )}
+                  {typeof r._id === 'string' && (
+                    <button onClick={() => reportReview(r._id)} className="mt-2 text-[11px] text-muted hover:text-red-500 flex items-center gap-1">
+                      <Flag size={11}/> Report
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

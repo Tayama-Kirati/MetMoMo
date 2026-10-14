@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Upload, Save, ArrowLeft } from 'lucide-react'
+import { Upload, Save, ArrowLeft, Sparkles } from 'lucide-react'
 import { api } from '../../services/api'
 import toast from 'react-hot-toast'
 
@@ -12,6 +12,7 @@ const CATS = [
 const EMPTY = {
   productName: '', productDescription: '', productPrice: '',
   productCategory: '', productStatus: 'available', productQuantity: '',
+  isVeg: 'false', spiceLevel: 'medium',
 }
 
 function Field({ label, required, hint, children }) {
@@ -51,6 +52,8 @@ export default function OwnerItemForm() {
             productCategory:    p.productCategory,
             productStatus:      p.productStatus,
             productQuantity:    String(p.productQuantity),
+            isVeg:              String(Boolean(p.isVeg)),
+            spiceLevel:         p.spiceLevel || 'medium',
           })
           setImagePreview(p.productImage || null)
         } else {
@@ -62,6 +65,20 @@ export default function OwnerItemForm() {
   }, [id, isEdit, navigate])
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
+  const [writing, setWriting] = useState(false)
+
+  const writeWithAI = async () => {
+    if (!form.productName.trim()) { toast.error('Enter the item name first'); return }
+    setWriting(true)
+    const { ok, data } = await api.post('/owner/ai/describe', {
+      productName: form.productName,
+      productCategory: form.productCategory,
+      notes: form.productDescription,
+    })
+    if (ok) setForm(f => ({ ...f, productDescription: data.data.description }))
+    else toast.error(data?.message || 'AI could not write a description')
+    setWriting(false)
+  }
 
   const handleImageChange = (e) => {
     const file = e.target.files[0]
@@ -148,7 +165,11 @@ export default function OwnerItemForm() {
               required value={form.productName} onChange={set('productName')}/>
           </Field>
 
-          <Field label="Description" required hint="Describe the ingredients, taste, or what makes it special.">
+          <Field label="Description" required hint="Describe the ingredients, taste, or what makes it special. Jot a few notes and let AI polish them.">
+            <button type="button" onClick={writeWithAI} disabled={writing}
+              className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-pink hover:underline disabled:opacity-50">
+              {writing ? <span className="spinner-pink"/> : <Sparkles size={13}/>} {writing ? 'Writing…' : 'Write with AI'}
+            </button>
             <textarea className="input-field resize-none" rows={4}
               placeholder="e.g. Juicy buff momo filled with fresh herbs and spices, served with tomato achar..."
               required value={form.productDescription} onChange={set('productDescription')}/>
@@ -176,6 +197,20 @@ export default function OwnerItemForm() {
               {CATS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Diet">
+              <select className="input-field" value={form.isVeg} onChange={set('isVeg')}>
+                <option value="false">🍗 Non-veg</option>
+                <option value="true">🥬 Vegetarian</option>
+              </select>
+            </Field>
+            <Field label="Spice level">
+              <select className="input-field" value={form.spiceLevel} onChange={set('spiceLevel')}>
+                {['mild', 'medium', 'hot', 'extra-hot'].map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </Field>
+          </div>
 
           <Field label="Availability" hint="You can toggle this anytime from the Menu page.">
             <div className="grid grid-cols-2 gap-3 mt-1">

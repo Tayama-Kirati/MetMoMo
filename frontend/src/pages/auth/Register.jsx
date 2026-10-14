@@ -70,10 +70,9 @@ export default function Register() {
       })
       if (ok && data.token) {
         login(data.token)
-        toast.success(form.userRole === 'restaurant_owner'
-          ? 'Welcome! Your restaurant owner account is ready.'
-          : 'Welcome to MetMomo!')
-        navigate(form.userRole === 'restaurant_owner' ? '/owner' : '/', { replace: true })
+        toast.success(data.message || 'Welcome to MetMomo!')
+        const home = { restaurant_owner: '/owner', delivery_rider: '/driver' }
+        navigate(home[form.userRole] || '/', { replace: true })
       } else if (ok) {
         toast.success('Account created! Please log in.')
         navigate('/login', { replace: true })
@@ -128,10 +127,11 @@ export default function Register() {
             {/* Role selector */}
             <div>
               <p className="text-xs font-display font-bold text-pink-400 uppercase tracking-wider mb-2">I want to join as</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {[
                   { value: 'customer',          icon: '🛍️', label: 'Customer',           sub: 'Order food from restaurants' },
                   { value: 'restaurant_owner',  icon: '🏪', label: 'Restaurant Owner',   sub: 'List and manage my restaurant' },
+                  { value: 'delivery_rider',    icon: '🛵', label: 'Rider',              sub: 'Deliver orders (needs approval)' },
                 ].map(({ value, icon, label, sub }) => (
                   <button key={value} type="button"
                     onClick={() => setForm(f => ({ ...f, userRole: value }))}

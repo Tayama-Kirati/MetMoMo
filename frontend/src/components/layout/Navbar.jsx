@@ -1,29 +1,30 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ShoppingCart, Heart, Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Store, Star } from 'lucide-react'
+import { ShoppingCart, Heart, Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Store, Star, Search, Moon, Sun, Languages, Bike } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
 import toast from 'react-hot-toast'
-import  '../../assets/momo.webp'
+import { usePrefs } from '../../context/PreferencesContext'
 
 function LogoutModal({ onConfirm, onCancel }) {
+  const { t } = usePrefs()
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-[0_20px_60px_rgba(0,0,0,0.2)] animate-scale-in text-center">
         <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
           <LogOut size={28} className="text-red-400" />
         </div>
-        <h3 className="font-display font-bold text-xl mb-2" style={{color:'#2D1B25'}}>Sign Out?</h3>
-        <p className="text-slate text-sm mb-6">Are you sure you want to sign out of your MetMomo account?</p>
+        <h3 className="font-display font-bold text-xl mb-2 text-ink">{t('signOut')}?</h3>
+        <p className="text-slate text-sm mb-6">{t('signOutConfirm')}</p>
         <div className="flex gap-3">
           <button onClick={onCancel}
             className="flex-1 h-11 rounded-2xl border border-gray-200 text-slate font-semibold hover:bg-pink-50 transition-colors">
-            Cancel
+            {t('cancel')}
           </button>
           <button onClick={onConfirm}
             className="flex-1 h-11 rounded-2xl bg-red-500 text-white font-semibold hover:bg-red-600 active:scale-95 transition-all">
-            Sign Out
+            {t('signOut')}
           </button>
         </div>
       </div>
@@ -56,6 +57,17 @@ export default function Navbar() {
   const dropRef = useRef(null)
   const isAdmin  = user?.userRole === 'admin'
   const isOwner  = user?.userRole === 'restaurant_owner'
+  const isDriver = user?.userRole === 'delivery_rider'
+  const isCustomer = !isOwner && !isAdmin && !isDriver
+  const { t, dark, toggleDark, toggleLang } = usePrefs()
+  const [query, setQuery] = useState('')
+
+  const submitSearch = (e) => {
+    e.preventDefault()
+    const q = query.trim()
+    navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search')
+    setOpen(false)
+  }
 
   useEffect(() => {
     const s = () => setScrolled(window.scrollY > 12)
@@ -88,30 +100,50 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center justify-center gap-12 flex-1 ml-9">
-            <NavLink to="/" label="Home" pathname={pathname} />
-            {!isOwner && !isAdmin && <NavLink to="/restaurants" label="Restaurants" pathname={pathname} />}
-            {!isOwner && !isAdmin && <NavLink to="/orders" label="My Orders" pathname={pathname} />}
-            {!isOwner && !isAdmin && <NavLink to="/reviews" label="Reviews" pathname={pathname} />}
-            {isAdmin && <NavLink to="/admin" label="Admin" pathname={pathname} />}
-            {isOwner && <NavLink to="/owner" label="Dashboard" pathname={pathname} />}
-            {isOwner && <NavLink to="/owner/orders" label="Orders" pathname={pathname} />}
-            {isOwner && <NavLink to="/owner/reviews" label="Reviews" pathname={pathname} />}
-            {isOwner && <NavLink to="/owner/menu" label="Menu Items" pathname={pathname} />}
-            {isOwner && <NavLink to="/owner/restaurant" label="Restaurant" pathname={pathname} />}
+            <NavLink to="/" label={t('home')} pathname={pathname} />
+            {isCustomer && <NavLink to="/restaurants" label={t('restaurants')} pathname={pathname} />}
+            {isCustomer && user && <NavLink to="/orders" label={t('myOrders')} pathname={pathname} />}
+            {isAdmin && <NavLink to="/admin" label={t('admin')} pathname={pathname} />}
+            {isDriver && <NavLink to="/driver" label={t('deliveries')} pathname={pathname} />}
+            {isOwner && <NavLink to="/owner" label={t('dashboard')} pathname={pathname} />}
+            {isOwner && <NavLink to="/owner/orders" label={t('orders')} pathname={pathname} />}
+            {isOwner && <NavLink to="/owner/menu" label={t('menuItems')} pathname={pathname} />}
+            {isCustomer && (
+              <form onSubmit={submitSearch} role="search" className="hidden lg:flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-full px-3 h-9 w-64">
+                <Search size={15} className="text-muted shrink-0" />
+                <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('searchPlaceholder')}
+                  aria-label={t('search')}
+                  className="bg-transparent outline-none text-sm flex-1 min-w-0 text-ink placeholder:text-muted" />
+              </form>
+            )}
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-1 ml-auto md:ml-0">
+            {isCustomer && (
+              <Link to="/search" aria-label={t('search')}
+                className="lg:hidden w-9 h-9 rounded-xl flex items-center justify-center text-slate hover:text-pink hover:bg-pink-50 transition-all">
+                <Search size={19} />
+              </Link>
+            )}
+            <button onClick={toggleLang} title={t('language')} aria-label={t('language')}
+              className="hidden sm:flex w-9 h-9 rounded-xl items-center justify-center text-slate hover:text-pink hover:bg-pink-50 transition-all">
+              <Languages size={18} />
+            </button>
+            <button onClick={toggleDark} title={t('darkMode')} aria-label={t('darkMode')}
+              className="hidden sm:flex w-9 h-9 rounded-xl items-center justify-center text-slate hover:text-pink hover:bg-pink-50 transition-all">
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             {user ? (
               <>
-                {!isOwner && !isAdmin && (
+                {isCustomer && (
                   <Link to="/wishlist"
                     className="w-9 h-9 rounded-xl flex items-center justify-center text-slate hover:text-pink hover:bg-pink-50 relative transition-all">
                     <Heart size={19} />
                     {wishCount > 0 && <span className="notif-dot">{wishCount > 9 ? '9+' : wishCount}</span>}
                   </Link>
                 )}
-                {!isOwner && !isAdmin && (
+                {isCustomer && (
                   <Link to="/cart"
                     className="w-9 h-9 rounded-xl flex items-center justify-center text-slate hover:text-pink hover:bg-pink-50 relative transition-all">
                     <ShoppingCart size={19} />
@@ -137,15 +169,17 @@ export default function Navbar() {
                         <p className="text-muted text-xs truncate">{user.userEmail}</p>
                       </div>
                       {[
-                        { to: '/profile',  icon: <User size={14}/>,          label: 'My Profile' },
-                        ...(!isOwner && !isAdmin ? [{ to: '/orders',   icon: <ShoppingCart size={14}/>, label: 'My Orders' }] : []),
-                        ...(!isOwner && !isAdmin ? [{ to: '/reviews',  icon: <Star size={14}/>,         label: 'Reviews'   }] : []),
-                        ...(!isOwner && !isAdmin ? [{ to: '/wishlist', icon: <Heart size={14}/>,        label: 'Wishlist'   }] : []),
-                        ...(isAdmin ? [{ to: '/admin',        icon: <LayoutDashboard size={14}/>, label: 'Admin Panel'    }] : []),
-                        ...(isOwner ? [{ to: '/owner',          icon: <Store size={14}/>,          label: 'Dashboard'  }] : []),
-                        ...(isOwner ? [{ to: '/owner/orders',  icon: <ShoppingCart size={14}/>,   label: 'Orders'     }] : []),
-                        ...(isOwner ? [{ to: '/owner/reviews', icon: <Star size={14}/>,           label: 'Reviews'    }] : []),
-                        ...(isOwner ? [{ to: '/owner/menu',    icon: <Store size={14}/>,          label: 'Menu Items' }] : []),
+                        { to: '/profile',  icon: <User size={14}/>,          label: t('myProfile') },
+                        ...(isCustomer ? [{ to: '/orders',   icon: <ShoppingCart size={14}/>, label: t('myOrders') }] : []),
+                        ...(isCustomer ? [{ to: '/reviews',  icon: <Star size={14}/>,         label: t('reviews')  }] : []),
+                        ...(isCustomer ? [{ to: '/wishlist', icon: <Heart size={14}/>,        label: t('wishlist') }] : []),
+                        ...(isAdmin ? [{ to: '/admin',        icon: <LayoutDashboard size={14}/>, label: t('adminPanel') }] : []),
+                        ...(isDriver ? [{ to: '/driver',      icon: <Bike size={14}/>,        label: t('deliveries') }] : []),
+                        ...(isOwner ? [{ to: '/owner',          icon: <Store size={14}/>,          label: t('dashboard')  }] : []),
+                        ...(isOwner ? [{ to: '/owner/orders',  icon: <ShoppingCart size={14}/>,   label: t('orders')     }] : []),
+                        ...(isOwner ? [{ to: '/owner/reviews', icon: <Star size={14}/>,           label: t('reviews')    }] : []),
+                        ...(isOwner ? [{ to: '/owner/menu',    icon: <Store size={14}/>,          label: t('menuItems')  }] : []),
+                        ...(isOwner ? [{ to: '/owner/restaurant', icon: <Store size={14}/>,       label: t('restaurant') }] : []),
                       ].map(item => (
                         <Link key={item.to} to={item.to} onClick={() => setDrop(false)}
                           className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm text-ink hover:bg-pink-50 hover:text-pink transition-colors">
@@ -155,7 +189,7 @@ export default function Navbar() {
                       <div className="border-t border-faint mt-1 pt-1">
                         <button onClick={() => { setDrop(false); setShowLogout(true) }}
                           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm text-red-500 hover:bg-red-50 transition-colors">
-                          <LogOut size={14}/> Sign Out
+                          <LogOut size={14}/> {t('signOut')}
                         </button>
                       </div>
                     </div>
@@ -164,8 +198,8 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <Link to="/login"    className="btn-outline text-sm px-4 py-2 hidden sm:inline-flex">Login</Link>
-                <Link to="/register" className="btn-outline text-sm px-4 py-2">Sign Up</Link>
+                <Link to="/login"    className="btn-outline text-sm px-4 py-2 hidden sm:inline-flex">{t('login')}</Link>
+                <Link to="/register" className="btn-outline text-sm px-4 py-2">{t('signUp')}</Link>
               </div>
             )}
 
@@ -180,29 +214,44 @@ export default function Navbar() {
       {open && (
         <div className="md:hidden fixed inset-0 z-40 pt-16" onClick={() => setOpen(false)}>
           <div className="bg-white border-b border-faint shadow-float px-4 py-4 flex flex-col gap-1 animate-slide-up" onClick={e => e.stopPropagation()}>
+            {isCustomer && (
+              <form onSubmit={submitSearch} role="search" className="flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-2xl px-3 h-11 mb-2">
+                <Search size={16} className="text-muted" />
+                <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('searchPlaceholder')}
+                  aria-label={t('search')} className="bg-transparent outline-none text-sm flex-1 text-ink" />
+              </form>
+            )}
             {[
-              { to: '/', l: 'Home' },
-              ...(!isOwner && !isAdmin ? [{ to: '/restaurants', l: 'Restaurants' }] : []),
-              ...(!isOwner && !isAdmin ? [{ to: '/orders',  l: 'My Orders' }] : []),
-              ...(!isOwner && !isAdmin ? [{ to: '/reviews', l: 'Reviews'   }] : []),
-              ...(!isOwner && !isAdmin && user ? [{ to: '/wishlist', l: 'Wishlist' }, { to: '/cart', l: `Cart${cartCount > 0 ? ` (${cartCount})` : ''}` }] : []),
-              ...(user ? [{ to: '/profile', l: 'Profile' }] : []),
-              ...(isAdmin ? [{ to: '/admin', l: 'Admin Dashboard' }] : []),
-              ...(isOwner ? [{ to: '/owner', l: 'Dashboard' }, { to: '/owner/orders', l: 'Orders' }, { to: '/owner/reviews', l: 'Reviews' }, { to: '/owner/menu', l: 'Menu Items' }, { to: '/owner/restaurant', l: 'My Restaurant' }] : []),
+              { to: '/', l: t('home') },
+              ...(isCustomer ? [{ to: '/restaurants', l: t('restaurants') }] : []),
+              ...(isCustomer && user ? [{ to: '/orders',  l: t('myOrders') }, { to: '/reviews', l: t('reviews') }] : []),
+              ...(isCustomer && user ? [{ to: '/wishlist', l: t('wishlist') }, { to: '/cart', l: `${t('cart')}${cartCount > 0 ? ` (${cartCount})` : ''}` }] : []),
+              ...(user ? [{ to: '/profile', l: t('profile') }] : []),
+              ...(isAdmin ? [{ to: '/admin', l: t('adminPanel') }] : []),
+              ...(isDriver ? [{ to: '/driver', l: t('deliveries') }] : []),
+              ...(isOwner ? [{ to: '/owner', l: t('dashboard') }, { to: '/owner/orders', l: t('orders') }, { to: '/owner/reviews', l: t('reviews') }, { to: '/owner/menu', l: t('menuItems') }, { to: '/owner/restaurant', l: t('restaurant') }] : []),
             ].map(({ to, l }) => (
               <Link key={to} to={to}
                 className={`px-4 py-3 rounded-2xl font-display font-semibold text-sm transition-colors ${pathname === to ? 'bg-pink-50 text-pink' : 'text-ink hover:bg-pink-50 hover:text-pink'}`}>
                 {l}
               </Link>
             ))}
+            <div className="flex gap-2 mt-1">
+              <button onClick={toggleLang} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm text-ink hover:bg-pink-50">
+                <Languages size={15}/> {t('language')}
+              </button>
+              <button onClick={toggleDark} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm text-ink hover:bg-pink-50">
+                {dark ? <Sun size={15}/> : <Moon size={15}/>} {t('darkMode')}
+              </button>
+            </div>
             {!user ? (
               <div className="flex gap-2 mt-2 pt-3 border-t border-faint">
-                <Link to="/login"    className="btn-outline flex-1 justify-center py-3">Login</Link>
-                <Link to="/register" className="btn-pink flex-1 justify-center py-3">Sign Up</Link>
+                <Link to="/login"    className="btn-outline flex-1 justify-center py-3">{t('login')}</Link>
+                <Link to="/register" className="btn-pink flex-1 justify-center py-3">{t('signUp')}</Link>
               </div>
             ) : (
               <button onClick={() => { setOpen(false); setShowLogout(true) }} className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm text-red-500 hover:bg-red-50 mt-1 border-t border-faint pt-3">
-                <LogOut size={14}/> Sign Out
+                <LogOut size={14}/> {t('signOut')}
               </button>
             )}
           </div>

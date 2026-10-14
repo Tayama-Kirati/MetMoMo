@@ -5,19 +5,27 @@ const {
   getMyProfile,
   updateMyProfile,
   deleteMyProfile,
-  updateMyPassword,   // FIX: original exported as "updatemyPassword" (lowercase p) — fixed in controller
+  updateMyPassword,
+  getAddresses,
+  addAddress,
+  updateAddress,
+  deleteAddress,
 } = require("../../controller/user/profile/profileController");
 
-// GET /api/profile        → get my profile
-// PATCH /api/profile      → update profile   FIX: was .delete() by mistake
-// DELETE /api/profile     → delete account
-router.route("/")
-  .get(isAuthenticated, catchAsync(getMyProfile))
-  .patch(isAuthenticated, catchAsync(updateMyProfile))   // ← was DELETE, now PATCH
-  .delete(isAuthenticated, catchAsync(deleteMyProfile));
+router.use(isAuthenticated);
 
-// PATCH /api/profile/changePassword
-router.route("/changePassword")
-  .patch(isAuthenticated, catchAsync(updateMyPassword));
+router.route("/")
+  .get(catchAsync(getMyProfile))
+  .patch(catchAsync(updateMyProfile))
+  .delete(catchAsync(deleteMyProfile));
+
+router.patch("/changePassword", catchAsync(updateMyPassword));
+
+router.route("/addresses")
+  .get(catchAsync(getAddresses))
+  .post(catchAsync(addAddress));
+router.route("/addresses/:addressId")
+  .patch(catchAsync(updateAddress))
+  .delete(catchAsync(deleteAddress));
 
 module.exports = router;

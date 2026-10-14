@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth }     from './context/AuthContext'
-import { useNotifications }          from './hooks/useNotifications'
+import { SocketProvider }            from './context/SocketContext'
+import { PreferencesProvider }       from './context/PreferencesContext'
 import { CartProvider }              from './context/CartContext'
 import { WishlistProvider }          from './context/WishlistContext'
 import Layout                        from './components/layout/Layout'
@@ -11,14 +13,6 @@ import AdminLogin     from './pages/auth/AdminLogin'
 import Register       from './pages/auth/Register'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ProtectedRoute, { GuestRoute, RoleRedirect, OwnerRoute, DriverRoute } from './components/ProtectedRoutes'
-import DriverOrders from './pages/driver/DriverOrders'
-import OwnerLayout    from './components/layout/OwnerLayout'
-import OwnerDashboard from './pages/owner/OwnerDashboard'
-import OwnerOrders    from './pages/owner/OwnerOrders'
-import OwnerReviews   from './pages/owner/OwnerReviews'
-import OwnerRestaurant from './pages/owner/OwnerRestaurant'
-import OwnerMenu      from './pages/owner/OwnerMenu'
-import OwnerItemForm  from './pages/owner/OwnerItemForm'
 
 import Home           from './pages/customer/Home'
 import CategoryPage   from './pages/customer/CategoryPage'
@@ -32,12 +26,28 @@ import Profile        from './pages/customer/Profile'
 import Wishlist       from './pages/customer/Wishlist'
 import PaymentSuccess from './pages/customer/PaymentSuccess'
 import PaymentFailed  from './pages/customer/PaymentFailed'
+import OrderTracking  from './pages/customer/OrderTracking'
+import Search         from './pages/customer/Search'
 
-import AdminDashboard   from './pages/admin/Dashboard'
-import AdminProducts    from './pages/admin/Products'
-import AdminRestaurants from './pages/admin/AdminRestaurants'
-import AdminUsers       from './pages/admin/Users'
-import AdminOrders      from './pages/admin/Orders'
+
+// Role-specific areas load on demand
+const DriverOrders = lazy(() => import('./pages/driver/DriverOrders'))
+const OwnerLayout = lazy(() => import('./components/layout/OwnerLayout'))
+const OwnerDashboard = lazy(() => import('./pages/owner/OwnerDashboard'))
+const OwnerOrders = lazy(() => import('./pages/owner/OwnerOrders'))
+const OwnerReviews = lazy(() => import('./pages/owner/OwnerReviews'))
+const OwnerRestaurant = lazy(() => import('./pages/owner/OwnerRestaurant'))
+const OwnerMenu = lazy(() => import('./pages/owner/OwnerMenu'))
+const OwnerItemForm = lazy(() => import('./pages/owner/OwnerItemForm'))
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
+const AdminProducts = lazy(() => import('./pages/admin/Products'))
+const AdminRestaurants = lazy(() => import('./pages/admin/AdminRestaurants'))
+const AdminUsers = lazy(() => import('./pages/admin/Users'))
+const AdminOrders = lazy(() => import('./pages/admin/Orders'))
+const AdminApprovals = lazy(() => import('./pages/admin/Approvals'))
+const AdminCoupons = lazy(() => import('./pages/admin/Coupons'))
+const AdminPayouts = lazy(() => import('./pages/admin/Payouts'))
+const AdminReportedReviews = lazy(() => import('./pages/admin/ReportedReviews'))
 
 function PageLoader() {
   return (
@@ -67,26 +77,18 @@ function AdminRoute({ children }) {
   if (user?.userRole !== 'admin') return <Navigate to="/" replace />
   return children
 }
-// function GuestRoute({ children }) {
-//   const { token, loading } = useAuth()
-//   if (loading) return <PageLoader/>
-//   return token ? <Navigate to="/" replace /> : children
-// }
-
 function AppRoutes() {
-  const { user } = useAuth()
-  useNotifications(user?._id)   // connect socket & listen for order notifications
-
   return (
     <Layout>
       <Toaster position="top-right" gutter={8}
         toastOptions={{
           duration: 3000,
-          style: { background:'#2D1B25', color:'#FFF9FB', borderRadius:'20px', fontFamily:'Plus Jakarta Sans, sans-serif', fontSize:'14px', fontWeight:'500', border:'1px solid rgba(255,45,120,0.2)', padding:'14px 18px' },
+          style: { background:'#2D1B25', color:'#FFF9FB', borderRadius:'20px', fontFamily:'Plus Jakarta Sans, sans-serif', fontSize:'14px', fontWeight:'500', border:'1px solid rgba(255,45,120,0.2)', padding:'14px 18px', maxWidth: 420 },
           success: { iconTheme: { primary:'#FF2D78', secondary:'#fff' } },
           error:   { iconTheme: { primary:'#EF4444', secondary:'#fff' } },
         }}
       />
+      <Suspense fallback={<PageLoader/>}>
       <Routes>
         <Route path="/"                element={<Home />} />
         <Route path="restaurants"     element={<Restaurants />} />
@@ -95,6 +97,7 @@ function AppRoutes() {
         <Route path="/category/:name"   element={<CategoryPage />} />
         <Route path="/restaurants/:id" element={<RestaurantMenu />} />
         <Route path="/product/:id"     element={<ProductDetail />} />
+        <Route path="/search"          element={<Search />} />
 
         <Route path="/login"           element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/admin/login"     element={<AdminLogin />} />
@@ -105,6 +108,7 @@ function AppRoutes() {
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-failed"  element={<PaymentFailed />} />
         <Route path="/orders"   element={<PrivateRoute><Orders /></PrivateRoute>} />
+        <Route path="/orders/:id" element={<PrivateRoute><OrderTracking /></PrivateRoute>} />
         <Route path="/reviews"  element={<PrivateRoute><Reviews /></PrivateRoute>} />
         <Route path="/profile"  element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
@@ -124,19 +128,24 @@ function AppRoutes() {
         <Route path="/admin/restaurants"   element={<AdminRoute><AdminRestaurants /></AdminRoute>} />
         <Route path="/admin/users"         element={<AdminRoute><AdminUsers /></AdminRoute>} />
         <Route path="/admin/orders"        element={<AdminRoute><AdminOrders /></AdminRoute>} />
+        <Route path="/admin/approvals"     element={<AdminRoute><AdminApprovals /></AdminRoute>} />
+        <Route path="/admin/coupons"       element={<AdminRoute><AdminCoupons /></AdminRoute>} />
+        <Route path="/admin/payouts"       element={<AdminRoute><AdminPayouts /></AdminRoute>} />
+        <Route path="/admin/reviews"       element={<AdminRoute><AdminReportedReviews /></AdminRoute>} />
 
          
         <Route path="*" element={
-          <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 py-20">
+          <div><title>Page not found · MetMoMo</title><div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 py-20">
             <div className="text-8xl mb-6 animate-float">
               <img src="/logo.png" alt="MetMomo" className="w-20 h-20"/>
             </div>
             <h1 className="font-display font-black text-5xl text-ink mb-3">404</h1>
             <p className="text-muted text-lg mb-8">This page doesn't exist.</p>
             <a href="/" className="btn-pink px-8 py-3.5 text-base">Back to Home</a>
-          </div>
+          </div></div>
         }/>
-      </Routes> 
+      </Routes>
+      </Suspense>
     </Layout>
   )
 }
@@ -144,11 +153,15 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <CartProvider>
-        <WishlistProvider>
-          <AppRoutes />
-        </WishlistProvider>
-      </CartProvider>
+      <PreferencesProvider>
+        <SocketProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <AppRoutes />
+            </WishlistProvider>
+          </CartProvider>
+        </SocketProvider>
+      </PreferencesProvider>
     </AuthProvider>
   )
 }

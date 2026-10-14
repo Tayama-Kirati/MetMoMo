@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Star, RefreshCw, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle, Truck } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Star, RefreshCw, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle, Truck, MapPin, ChefHat } from 'lucide-react'
 import { api, ROUTES } from '../../services/api'
+import { useCart } from '../../context/CartContext'
+import { usePrefs } from '../../context/PreferencesContext'
+import { useSocketEvent } from '../../context/SocketContext'
 import toast from 'react-hot-toast'
 
 const STATUS = {
   pending:   { label: 'Pending',    icon: <Clock size={12}/>,       cls: 'badge-yellow', step: 0 },
   confirmed: { label: 'Confirmed',  icon: <CheckCircle size={12}/>, cls: 'badge-green',  step: 1 },
+  preparation: { label: 'Preparing', icon: <ChefHat size={12}/>,    cls: 'badge-yellow', step: 1 },
   ontheway:  { label: 'On the Way', icon: <Truck size={12}/>,       cls: 'badge-gray',   step: 2 },
   delivered: { label: 'Delivered',  icon: <CheckCircle size={12}/>, cls: 'badge-green',  step: 3 },
   cancelled: { label: 'Cancelled',  icon: <XCircle size={12}/>,     cls: 'badge-red',    step: -1 },
@@ -23,29 +27,37 @@ const TRACK_STEPS = [
 function OrderCard({ order, onStatusUpdate }) {
   const [expanded, setExpanded] = useState(false)
   const [cancelling, setCancelling] = useState(false)
-  const [ratingVal, setRatingVal]   = useState(0)
-  const [savingRating, setSavingRating] = useState(false)
+  const [reordering, setReordering] = useState(false)
+  const { addToCart, setQuantity } = useCart()
+  const { t } = usePrefs()
+  const navigate = useNavigate()
   const st        = STATUS[order.orderStatus] || STATUS.pending
   const canCancel = ['pending', 'confirmed'].includes(order.orderStatus)
-  const canRate   = order.orderStatus === 'delivered' && !order.rating
-  const isActive  = ['pending', 'confirmed', 'ontheway'].includes(order.orderStatus)
-  const reorderRestaurantId = order.items?.[0]?.product?.restaurant?._id
+  const canReview = order.orderStatus === 'delivered'
+  const isActive  = ['pending', 'confirmed', 'preparation', 'ontheway'].includes(order.orderStatus)
+
+  const handleReorder = async () => {
+    setReordering(true)
+    const { ok, data } = await api.post(ROUTES.reorder(order._id))
+    if (!ok) { toast.error(data?.message || 'Could not reorder'); setReordering(false); return }
+    const { items, missing } = data.data
+    if (!items.length) { toast.error('None of these items are available right now'); setReordering(false); return }
+    for (const it of items) {
+      const res = await addToCart(it.product)
+      if (!res.ok) { setReordering(false); return }
+      if (it.quantity > 1) await setQuantity(it.product, it.quantity)
+    }
+    toast.success(missing ? `Added to cart (${missing} item${missing > 1 ? 's' : ''} unavailable)` : 'Added to cart')
+    navigate('/cart')
+  }
 
   const handleCancel = async () => {
     if (!confirm('Cancel this order?')) return
     setCancelling(true)
     const { ok, data } = await api.delete(ROUTES.cancelOrder(order._id))
-    if (ok) { toast.success('Order cancelled'); onStatusUpdate(order._id, 'cancelled') }
+    if (ok) { toast.success(data?.message || 'Order cancelled'); onStatusUpdate(order._id, 'cancelled') }
     else toast.error(data?.message || 'Cannot cancel now')
     setCancelling(false)
-  }
-
-  const handleRate = async () => {
-    if (!ratingVal) { toast.error('Select a star rating'); return }
-    setSavingRating(true)
-    const { ok } = await api.post(ROUTES.rateOrder(order._id), { rating: ratingVal })
-    if (ok) toast.success('Thanks for rating! ⭐')
-    setSavingRating(false)
   }
 
   return (
@@ -143,46 +155,37 @@ function OrderCard({ order, onStatusUpdate }) {
                     : <div className="w-full h-full flex items-center justify-center text-base">🍜</div>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-display font-semibold text-ink text-sm truncate">{item.product?.productName || 'Item'}</p>
+                  <p className="font-display font-semibold text-ink text-sm truncate">{item.name || item.product?.productName || 'Item'}</p>
                   <p className="text-muted text-xs">Qty: {item.quantity}</p>
                 </div>
-                <span className="text-pink font-display font-bold text-sm">NPR {(item.price * item.quantity)?.toLocaleString()}</span>
+                <span className="text-pink font-display font-bold text-sm">NPR {((item.price ?? item.product?.productPrice ?? 0) * item.quantity).toLocaleString()}</span>
               </div>
             ))}
           </div>
 
-          {/* Rate */}
-          {canRate && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
-              <p className="font-display font-bold text-ink text-sm mb-2">Rate your order</p>
-              <div className="flex items-center gap-2 mb-3">
-                {[1,2,3,4,5].map(n => (
-                  <button key={n} onClick={() => setRatingVal(n)}
-                    className={`text-2xl transition-transform hover:scale-125 ${n <= ratingVal ? 'text-yellow-400' : 'text-faint'}`}>★</button>
-                ))}
-              </div>
-              <button onClick={handleRate} disabled={savingRating} className="btn-pink text-sm py-2 px-4 gap-2 rounded-xl">
-                {savingRating ? <span className="spinner" /> : <Star size={13}/>} Submit Rating
-              </button>
+          {canReview && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+              <p className="font-display font-bold text-ink text-sm">Enjoyed it? Review the dishes ⭐</p>
+              <Link to="/reviews" className="btn-pink text-sm py-2 px-4 gap-2 rounded-xl"><Star size={13}/> Review</Link>
             </div>
           )}
 
-          {order.rating && (
-            <p className="text-sm text-slate">You rated: {'⭐'.repeat(order.rating)}</p>
-          )}
-
           {/* Actions */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {order.orderStatus !== 'cancelled' && (
+              <Link to={`/orders/${order._id}`} className="btn-pink text-sm py-2 px-4 rounded-xl gap-1">
+                <MapPin size={13}/> {t('trackOrder')}
+              </Link>
+            )}
             {canCancel && (
               <button onClick={handleCancel} disabled={cancelling}
                 className="btn-outline text-red-500 border-red-200 hover:bg-red-50 text-sm py-2 px-4 rounded-xl gap-1">
                 {cancelling ? <span className="spinner-pink"/> : <XCircle size={13}/>} Cancel Order
               </button>
             )}
-            <Link to={reorderRestaurantId ? `/restaurants/${reorderRestaurantId}` : '/restaurants'}
-              className="btn-soft text-sm py-2 px-4 rounded-xl gap-1">
-              <RefreshCw size={13}/> Reorder
-            </Link>
+            <button onClick={handleReorder} disabled={reordering} className="btn-soft text-sm py-2 px-4 rounded-xl gap-1">
+              {reordering ? <span className="spinner-pink"/> : <RefreshCw size={13}/>} {t('reorder')}
+            </button>
           </div>
         </div>
       )}
@@ -200,16 +203,20 @@ export default function Orders() {
   }
   useEffect(() => { load() }, [])
 
-  const handleStatusUpdate = (orderId, newStatus) => {
+  const handleStatusUpdate = useCallback((orderId, newStatus) => {
     setOrders(prev => prev.map(o => o._id === orderId ? { ...o, orderStatus: newStatus } : o))
-  }
+  }, [])
+
+  // Live updates pushed by the server
+  useSocketEvent('order:status', useCallback(({ orderId, status }) => handleStatusUpdate(String(orderId), status), [handleStatusUpdate]))
 
   return (
     <div className="page-wrap max-w-3xl mx-auto">
+      <title>My Orders · MetMoMo</title>
       <div className="flex items-center justify-between mb-6 pb-4 border-b border-faint">
         <h2 className="font-display font-bold text-xl text-ink">My Orders</h2>
         <div className="flex items-center gap-3">
-          <button onClick={load} className="btn-ghost gap-1.5 text-sm"><RefreshCw size={13}/> Refresh</button>
+          <button onClick={load} className="btn-ghost-pink gap-1.5 text-sm"><RefreshCw size={13}/> Refresh</button>
           <Link to="/restaurants" className="btn-pink text-sm gap-1.5">Find Restaurants</Link>
         </div>
       </div>

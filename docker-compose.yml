@@ -1,0 +1,36 @@
+# Local full stack: MongoDB + API + web.  Usage:
+#   cp backend/.env.example backend/.env   (fill in SECRET_KEY etc.)
+#   docker compose up --build
+# Then open http://localhost:8080
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/metmomo
+      FRONTEND_URL: http://localhost:8080
+      BACKEND_URL: http://localhost:8080
+      TRUST_PROXY: "1"
+    depends_on:
+      - mongo
+    volumes:
+      - uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
+  uploads:

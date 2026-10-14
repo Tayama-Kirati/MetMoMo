@@ -2,6 +2,9 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Search, ArrowRight, Star, Clock, Truck, Zap, MapPin, ShoppingBag } from 'lucide-react'
 import { api, ROUTES } from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
+import { usePrefs } from '../../context/PreferencesContext'
+import ProductCard from '../../components/ui/ProductCard'
 
 const FOOD_CATEGORIES = [
   { name: 'Momo',   img: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=200&h=200&fit=crop' },
@@ -37,6 +40,14 @@ export default function Home() {
   const [showDropdown, setShowDropdown] = useState(false)
   const searchRef = useRef(null)
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const { t } = usePrefs()
+  const [forYou, setForYou] = useState([])
+
+  useEffect(() => {
+    if (user?.userRole !== 'customer') { setForYou([]); return }
+    api.get(ROUTES.forYou).then(({ ok, data }) => { if (ok) setForYou(data.data || []) })
+  }, [user?._id, user?.userRole])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -58,8 +69,10 @@ export default function Home() {
 
   const handleSearch = (e) => {
     e.preventDefault()
-    const first = searchResults[0]
-    if (first) { setShowDropdown(false); setSearchQ(''); navigate(`/restaurants/${first._id}`) }
+    const q = searchQ.trim()
+    if (!q) return
+    setShowDropdown(false); setSearchQ('')
+    navigate(`/search?q=${encodeURIComponent(q)}`)
   }
 
   const searchResults = searchQ.trim().length > 0
@@ -71,6 +84,8 @@ export default function Home() {
 
   return (
     <div>
+      <title>MetMoMo – Momos &amp; Nepali food delivered in Kathmandu</title>
+      <meta name="description" content="Order fresh momos and Nepali food from local restaurants in Kathmandu, Lalitpur and Bhaktapur. Pay with cash, Khalti or eSewa." />
 
       {/* ── HERO ── */}
       <section className="relative bg-pink-50 overflow-hidden pt-10 pb-16">
@@ -223,6 +238,24 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ── PERSONALISED PICKS ── */}
+      {forYou.length > 0 && (
+        <section className="section bg-white">
+          <div className="wrap">
+            <h2 className="section-title">{t('forYou')}</h2>
+            <p className="section-sub mb-6">{t('forYouSub')}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {forYou.slice(0, 8).map(p => (
+                <div key={p._id}>
+                  <ProductCard product={p} />
+                  <p className="text-xs text-muted mt-1.5 px-1 truncate">✨ {p.reason}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── TOP PICKS — AI powered ── */}
       <section className="section bg-white">

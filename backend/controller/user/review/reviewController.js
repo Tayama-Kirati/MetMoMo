@@ -15,8 +15,8 @@ exports.getMyReviews = async (req, res) => {
 // FIX: this function was entirely commented out — restored it
 exports.getProductReview = async (req, res) => {
   const productId = req.params.id;
-  const reviews = await Review.find({ productId })
-    .populate("userId", "userName userEmail")
+  const reviews = await Review.find({ productId, isHidden: { $ne: true } })
+    .populate("userId", "userName")
     .populate("productId", "productName");
   res.status(200).json({ message: "Reviews retrieved successfully", data: reviews });
 };
@@ -42,7 +42,11 @@ exports.createReview = async (req, res) => {
     return res.status(400).json({ message: "You have already reviewed this product" });
   }
 
-  const review = await Review.create({ userId, productId, rating, message });
+  const stars = Math.round(Number(rating));
+  if (!(stars >= 1 && stars <= 5)) {
+    return res.status(400).json({ message: "Rating must be between 1 and 5" });
+  }
+  const review = await Review.create({ userId, productId, rating: stars, message: String(message).slice(0, 2000) });
   return res.status(201).json({ message: "Review created successfully", data: review });
 };
 
@@ -62,6 +66,18 @@ exports.deleteReview = async (req, res) => {
 
   await Review.findByIdAndDelete(reviewId);
   res.status(200).json({ message: "Review deleted successfully" });
+};
+
+// POST /api/reviews/reviews/:id/report  — flag a review for admin moderation
+exports.reportReview = async (req, res) => {
+  const review = await Review.findById(req.params.id);
+  if (!review) return res.status(404).json({ message: "Review not found" });
+  if (review.reports.some(r => String(r.user) === String(req.user._id))) {
+    return res.status(200).json({ message: "You already reported this review" });
+  }
+  review.reports.push({ user: req.user._id, reason: String(req.body.reason || "").slice(0, 300) });
+  await review.save();
+  res.status(200).json({ message: "Thanks — our team will take a look" });
 };
 
 // Alias kept for router compatibility

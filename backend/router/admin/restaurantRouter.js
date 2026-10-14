@@ -2,10 +2,12 @@ const express = require('express');
 const router = express.Router();
 
 const isAuthenticated = require('../../middleware/isAuthenticated');
+const optionalAuth = require('../../middleware/optionalAuth');
 const restrictTo = require('../../middleware/restrictTo');
-const { multer, storage } = require('../../middleware/multerConfig');
+const { upload } = require('../../services/storage');
+const { aiLimiter } = require('../../middleware/rateLimits');
 
-const upload = multer({ storage }).fields([
+const images = upload.fields([
   { name: 'coverImage', maxCount: 1 },
   { name: 'logo',       maxCount: 1 },
 ]);
@@ -14,6 +16,7 @@ const {
   getAllRestaurants,
   getRestaurant,
   getRestaurantMenu,
+  getReviewSummary,
   createRestaurant,
   updateRestaurant,
   deleteRestaurant,
@@ -21,18 +24,17 @@ const {
 
 router
   .route('/')
-  .get(getAllRestaurants)
-  .post(isAuthenticated, restrictTo('admin'), upload, createRestaurant);
+  .get(optionalAuth, getAllRestaurants)
+  .post(isAuthenticated, restrictTo('admin'), images, createRestaurant);
 
 router
   .route('/:id')
-  .get(getRestaurant)
-  .put(isAuthenticated, restrictTo('admin'), upload, updateRestaurant)
-  .patch(isAuthenticated, restrictTo('admin'), upload, updateRestaurant)
+  .get(optionalAuth, getRestaurant)
+  .put(isAuthenticated, restrictTo('admin'), images, updateRestaurant)
+  .patch(isAuthenticated, restrictTo('admin'), images, updateRestaurant)
   .delete(isAuthenticated, restrictTo('admin'), deleteRestaurant);
 
-router
-  .route('/:id/menu')
-  .get(getRestaurantMenu);
+router.get('/:id/menu', optionalAuth, getRestaurantMenu);
+router.get('/:id/review-summary', aiLimiter, optionalAuth, getReviewSummary);
 
 module.exports = router;

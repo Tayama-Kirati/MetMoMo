@@ -248,6 +248,38 @@ export default function OwnerDashboard() {
         </div>
       )}
 
+      {/* Best sellers + busiest hours */}
+      {restaurant && finance && (
+        <div className="grid lg:grid-cols-2 gap-6">
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg text-ink mb-1">Best sellers</h2>
+            <p className="text-muted text-xs mb-4">Delivered orders, all time</p>
+            {finance.bestSellers?.length ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted border-b border-faint">
+                    <th className="font-semibold pb-2">Item</th>
+                    <th className="font-semibold pb-2 text-right">Sold</th>
+                    <th className="font-semibold pb-2 text-right">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {finance.bestSellers.map((b, i) => (
+                    <tr key={b.productId} className="border-b border-faint last:border-0">
+                      <td className="py-2 text-ink"><span className="text-muted mr-2">{i + 1}.</span>{b.name}</td>
+                      <td className="py-2 text-right text-ink tabular-nums">{b.quantity}</td>
+                      <td className="py-2 text-right text-ink tabular-nums">{fmt(b.revenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <p className="text-sm text-muted">No delivered orders yet.</p>}
+          </div>
+
+          <BusiestHours hours={finance.busiestHours || []} />
+        </div>
+      )}
+
       {/* Item stats */}
       {restaurant && (
         <div>
@@ -288,6 +320,36 @@ export default function OwnerDashboard() {
         </div>
       </div>
 
+    </div>
+  )
+}
+
+// Orders by hour of day — single series, so no legend; hover a bar for its value
+function BusiestHours({ hours }) {
+  const max = Math.max(1, ...hours.map(h => h.orders))
+  const peak = hours.reduce((a, b) => (b.orders > a.orders ? b : a), { hour: 0, orders: 0 })
+  const label = (h) => `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`
+  return (
+    <div className="card p-6">
+      <h2 className="font-display font-bold text-lg text-ink mb-1">Busiest hours</h2>
+      <p className="text-muted text-xs mb-4">
+        {peak.orders ? <>Peak at <span className="font-bold text-ink">{label(peak.hour)}</span> · orders placed per hour of day</> : 'Orders placed per hour of day'}
+      </p>
+      <div className="flex items-end gap-[2px] h-32 border-b border-faint" role="img"
+        aria-label={`Orders by hour. Busiest hour: ${label(peak.hour)} with ${peak.orders} orders.`}>
+        {hours.map(h => (
+          <div key={h.hour} className="group relative flex-1 h-full flex items-end">
+            <div className="w-full rounded-t-[4px] bg-pink transition-opacity group-hover:opacity-80"
+              style={{ height: `${(h.orders / max) * 100}%`, minHeight: h.orders ? 2 : 0 }} />
+            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block whitespace-nowrap rounded-lg bg-gray-900 text-white text-[11px] px-2 py-1 z-10">
+              {label(h.hour)} · {h.orders} order{h.orders === 1 ? '' : 's'}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between text-[10px] text-muted mt-1.5">
+        {[0, 6, 12, 18, 23].map(h => <span key={h}>{label(h)}</span>)}
+      </div>
     </div>
   )
 }

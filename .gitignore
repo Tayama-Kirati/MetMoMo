@@ -1,11 +1,11 @@
 # dependencies
-node_modules/
+**/node_modules/
 
 # environment variables
 .env
 
 # macOS
-.DS_Store
+**/.DS_Store
 
 # build files
 dist/
@@ -13,3 +13,10 @@ build/
 
 # logs
 *.log
+
+# user uploads (stored on Cloudinary in production)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# test / coverage output
+coverage/

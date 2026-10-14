@@ -5,7 +5,7 @@ import {
   Phone, Mail, Globe, Home, Tag, Utensils,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { useWishlist } from '../../context/WishlistContext'
+import SavedAddresses from '../../components/SavedAddresses'
 import { api, ROUTES } from '../../services/api'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -135,8 +135,7 @@ const Select = ({ className = '', children, ...props }) => (
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Profile() {
-  const { user, refetchUser } = useAuth()
-  const { count: wishCount }  = useWishlist()
+  const { user, refetchUser, login } = useAuth()
   const [tab, setTab]   = useState('basic')
   const [saving, setSaving] = useState(false)
 
@@ -217,7 +216,11 @@ export default function Profile() {
     if (pw.newPassword !== pw.confirmPassword) { toast.error("Passwords don't match"); return }
     setSavingPw(true)
     const { ok, data } = await api.patch(ROUTES.changePassword, pw)
-    if (ok) { toast.success('Password changed!'); setPw({ oldPassword: '', newPassword: '', confirmPassword: '' }) }
+    if (ok) {
+      toast.success('Password changed! Other devices have been signed out.')
+      setPw({ oldPassword: '', newPassword: '', confirmPassword: '' })
+      if (data.token) login(data.token)   // old token is no longer valid
+    }
     else toast.error(data?.message || 'Failed')
     setSavingPw(false)
   }
@@ -307,8 +310,11 @@ export default function Profile() {
 
           {/* ── ADDRESS ── */}
           {tab === 'address' && (
+            <div className="space-y-5">
+            {/* Kept outside the profile form: it has its own form and HTML forms can't nest */}
+            <SectionHead title="Address Information" sub="Your delivery locations" />
+            <SavedAddresses />
             <form onSubmit={saveProfile} className="space-y-5">
-              <SectionHead title="Address Information" sub="Your delivery location" />
               <div className="card p-6 grid sm:grid-cols-2 gap-4">
                 <Field label="Street Address" icon={<Home size={12}/>} >
                   <Input placeholder="123 Street name" value={pf.address} onChange={set('address')} className="sm:col-span-2" />
@@ -341,6 +347,7 @@ export default function Profile() {
               </div>
               <SaveBtn saving={saving} />
             </form>
+            </div>
           )}
 
           {/* ── PREFERENCES ── */}
@@ -465,6 +472,7 @@ export default function Profile() {
                 <InfoRow label="Role"          value={user?.userRole}                  badge />
                 <InfoRow label="Verified"      value={user?.isVerified ? 'Yes' : 'No'} />
                 <InfoRow label="Blocked"       value={user?.isBlocked  ? 'Yes' : 'No'} />
+                {isCustomer && <InfoRow label="Loyalty points" value={String(user?.loyaltyPoints ?? 0)} />}
                 <InfoRow label="Last Login"    value={fmt(user?.lastLogin)} />
                 <InfoRow label="Member Since"  value={fmt(user?.createdAt)} />
                 <InfoRow label="Last Updated"  value={fmt(user?.updatedAt)} />

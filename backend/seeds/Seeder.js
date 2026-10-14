@@ -1,6 +1,6 @@
  
 // require('dotenv').config()
-require('dotenv').config({ path: '../.env' })
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') })
 const mongoose = require('mongoose')
 const bcrypt   = require('bcryptjs')
 
@@ -9,6 +9,7 @@ const Product    = require('../models/productModel')
 const Review     = require('../models/reviewModel')
 const Order      = require('../models/orderSchema')
 const Restaurant = require('../models/restaurantModel')
+const Coupon     = require('../models/couponModel')
 
  
 const USERS = [
@@ -17,6 +18,7 @@ const USERS = [
   { userName: 'Priya Thapa',  userEmail: 'priya@test.com',    userPhoneNumber: 9807654321, userPassword: bcrypt.hashSync('password123', 10), userRole: 'customer' },
   { userName: 'Bikram Rai',   userEmail: 'bikram@test.com',   userPhoneNumber: 9851122334, userPassword: bcrypt.hashSync('password123', 10), userRole: 'customer' },
   { userName: 'Sita Gurung',  userEmail: 'sita@test.com',     userPhoneNumber: 9869988776, userPassword: bcrypt.hashSync('password123', 10), userRole: 'customer' },
+  { userName: 'Hari Rider',   userEmail: 'rider@test.com',    userPhoneNumber: 9812345678, userPassword: bcrypt.hashSync('password123', 10), userRole: 'delivery_rider', isApproved: true },
   { userName: 'Rajan Magar',  userEmail: 'rajan@test.com',    userPhoneNumber: 9823344556, userPassword: bcrypt.hashSync('password123', 10), userRole: 'customer' },
 ]
  
@@ -253,6 +255,7 @@ async function seed() {
       Review.deleteMany({}),
       Order.deleteMany({}),
       Restaurant.deleteMany({}),
+      Coupon.deleteMany({}),
     ])
     console.log('Cleared!\n')
 
@@ -292,13 +295,19 @@ async function seed() {
     for (let i = 0; i < 10; i++) {
       const user  = customers[i % customers.length]
       const item1 = products[i % products.length]
-      const item2 = products[(i + 5) % products.length]
-      const total = item1.productPrice + item2.productPrice
+      // Second item from the same restaurant — orders are single-restaurant
+      const item2 = products.find(p => p._id !== item1._id && String(p.restaurant) === String(item1.restaurant)) || item1
+      const subtotal = item1.productPrice + item2.productPrice
       const st    = STATUSES[i % STATUSES.length]
       orderData.push({
         user:    user._id,
-        items:   [{ product: item1._id, quantity: 1 }, { product: item2._id, quantity: 1 }],
-        totalAmount:     total,
+        restaurant: item1.restaurant,
+        items:   [item1, item2].map(p => ({ product: p._id, quantity: 1, name: p.productName, price: p.productPrice })),
+        subtotal,
+        deliveryFee: 70,
+        totalAmount: subtotal + 70,
+        deliveryCode: String(1000 + i),
+        statusHistory: [{ status: st, at: new Date() }],
         shippingAddress: ADDRESSES[i % ADDRESSES.length],
         orderStatus:     st,
         paymentDetails:  { method: i % 2 === 0 ? 'COD' : 'khalti', status: st === 'delivered' ? 'paid' : 'unpaid' },
@@ -306,6 +315,14 @@ async function seed() {
     }
     const orders = await Order.insertMany(orderData)
     console.log(`${orders.length} orders created\n`)
+
+    // Coupons
+    await Coupon.insertMany([
+      { code: 'FIRST20', description: '20% off your first order', type: 'percent', value: 20, maxDiscount: 200, firstOrderOnly: true },
+      { code: 'MOMO10',  description: '10% off any order',        type: 'percent', value: 10, maxDiscount: 100, perUserLimit: 3 },
+      { code: 'FLAT50',  description: 'NPR 50 off orders above NPR 400', type: 'flat', value: 50, minOrder: 400, perUserLimit: 5 },
+    ])
+    console.log('3 coupons created\n')
     process.exit(0)
   } catch (err) {
     console.error('Seeder error:', err.message)

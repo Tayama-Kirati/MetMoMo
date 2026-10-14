@@ -1,187 +1,282 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { api } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import { useSocket, useSocketEvent, showSystemNotification } from '../../context/SocketContext'
 import toast from 'react-hot-toast'
-import { RefreshCw, MapPin, Phone, Mail, CheckCircle, Package } from 'lucide-react'
+import { RefreshCw, MapPin, Phone, CheckCircle, Package, Store, Navigation, Wallet, X, Radio } from 'lucide-react'
 
-function OrderCard({ order, onDelivered }) {
-  const [confirming, setConfirming] = useState(false)
+const STATUS_LABEL = {
+  confirmed:   { text: 'Waiting at restaurant', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+  preparation: { text: 'Being prepared',        cls: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  ontheway:    { text: '🛵 Out for delivery',     cls: 'bg-orange-100 text-orange-700 border-orange-200' },
+}
+
+const when = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+const mapsLink = (order) => order.location?.lat != null
+  ? `https://www.google.com/maps/dir/?api=1&destination=${order.location.lat},${order.location.lng}`
+  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.shippingAddress)}`
+
+function Items({ order }) {
+  return (
+    <div className="space-y-1 text-sm">
+      {order.items?.map((it, i) => (
+        <div key={i} className="flex justify-between">
+          <span className="text-ink">{it.quantity} × {it.name || it.product?.productName}</span>
+        </div>
+      ))}
+      <div className="flex justify-between border-t border-faint pt-1.5 font-bold">
+        <span className="text-ink">{order.paymentDetails?.method === 'COD' && order.paymentDetails?.status !== 'paid' ? 'Collect cash' : 'Prepaid'}</span>
+        <span className="text-pink">NPR {order.totalAmount?.toLocaleString()}</span>
+      </div>
+    </div>
+  )
+}
+
+function AvailableCard({ order, onAccepted, onDeclined }) {
+  const [busy, setBusy] = useState(false)
+  const accept = async () => {
+    setBusy(true)
+    const { ok, data } = await api.patch(`/driver/orders/${order._id}/accept`)
+    if (ok) { toast.success('Order accepted — head to the restaurant'); onAccepted(data.data) }
+    else { toast.error(data?.message || 'Could not accept'); onDeclined(order._id) }
+    setBusy(false)
+  }
+  const decline = async () => {
+    await api.patch(`/driver/orders/${order._id}/decline`)
+    onDeclined(order._id)
+  }
+  return (
+    <div className="card p-5 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="font-display font-bold text-ink">{order.restaurant?.emoji} {order.restaurant?.name}</p>
+          <p className="text-xs text-muted">{order.restaurant?.address}</p>
+        </div>
+        <span className="text-sm font-bold text-green-600 shrink-0">+ NPR {order.deliveryFee}</span>
+      </div>
+      <p className="text-sm text-ink flex items-start gap-1.5"><MapPin size={14} className="text-pink mt-0.5 shrink-0"/> {order.shippingAddress}</p>
+      <Items order={order} />
+      <div className="flex gap-2">
+        <button onClick={decline} disabled={busy} className="btn-outline flex-1 justify-center py-2.5 rounded-xl"><X size={14}/> Skip</button>
+        <button onClick={accept} disabled={busy} className="btn-pink flex-1 justify-center py-2.5 rounded-xl">
+          {busy ? <span className="spinner"/> : <CheckCircle size={14}/>} Accept
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ActiveCard({ order, onChanged, sharing }) {
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const st = STATUS_LABEL[order.orderStatus] || STATUS_LABEL.confirmed
   const customer = order.user
 
-  const handleConfirm = async () => {
-    if (!confirm('Confirm this order has been delivered?')) return
-    setConfirming(true)
-    const { ok, data } = await api.patch(`/driver/orders/${order._id}/delivered`)
-    if (ok) { toast.success('Delivery confirmed!'); onDelivered(order._id) }
-    else toast.error(data?.message || 'Could not confirm')
-    setConfirming(false)
+  const pickup = async () => {
+    setBusy(true)
+    const { ok, data } = await api.patch(`/driver/orders/${order._id}/pickup`)
+    if (ok) { toast.success('Picked up — customer notified'); onChanged() } else toast.error(data?.message || 'Could not update')
+    setBusy(false)
+  }
+  const deliver = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    const { ok, data } = await api.patch(`/driver/orders/${order._id}/delivered`, { code })
+    if (ok) { toast.success('Delivered! 🎉'); onChanged() } else toast.error(data?.message || 'Could not confirm')
+    setBusy(false)
   }
 
   return (
-    <div className="card overflow-hidden border-orange-200">
+    <div className="card overflow-hidden">
       <div className="h-1 bg-gradient-to-r from-orange-400 to-yellow-400" />
       <div className="p-5 space-y-4">
-
-        {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <p className="font-display font-bold text-ink">
-              Order #{order._id?.slice(-6).toUpperCase()}
-            </p>
-            <p className="text-muted text-xs">
-              {new Date(order.createdAt).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
-            </p>
+            <p className="font-display font-bold text-ink">Order #{order._id?.slice(-6).toUpperCase()}</p>
+            <p className="text-muted text-xs">{when(order.createdAt)}</p>
           </div>
-          <span className="bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold px-3 py-1 rounded-full">
-            🛵 Out for Delivery
-          </span>
+          <span className={`border text-xs font-bold px-3 py-1 rounded-full ${st.cls}`}>{st.text}</span>
         </div>
 
-        {/* Delivery address */}
-        <div className="bg-pink-50 rounded-2xl px-4 py-3 flex items-start gap-2">
-          <MapPin size={15} className="text-pink-500 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs font-bold text-pink-600 uppercase tracking-wider mb-0.5">Deliver To</p>
-            <p className="text-sm font-semibold text-ink">{order.shippingAddress}</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="bg-gray-50 rounded-2xl px-4 py-3">
+            <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1 flex items-center gap-1"><Store size={11}/> Pick up</p>
+            <p className="text-sm font-semibold text-ink">{order.restaurant?.name}</p>
+            <p className="text-xs text-muted">{order.restaurant?.address}</p>
+            {order.restaurant?.phone && <a href={`tel:${order.restaurant.phone}`} className="text-xs text-green-600 font-semibold flex items-center gap-1 mt-1"><Phone size={11}/> {order.restaurant.phone}</a>}
           </div>
-        </div>
-
-        {/* Customer info */}
-        <div className="bg-gray-50 rounded-2xl px-4 py-3 space-y-1.5">
-          <p className="text-xs font-bold text-muted uppercase tracking-wider">Customer</p>
-          <p className="font-semibold text-ink text-sm">{customer?.userName}</p>
-          {customer?.userPhoneNumber && (
-            <a href={`tel:${customer.userPhoneNumber}`}
-              className="flex items-center gap-1.5 text-xs text-green-600 font-semibold hover:underline">
-              <Phone size={11}/> {customer.userPhoneNumber}
-            </a>
-          )}
-          {customer?.userEmail && (
-            <p className="flex items-center gap-1.5 text-xs text-muted">
-              <Mail size={11}/> {customer.userEmail}
-            </p>
-          )}
-        </div>
-
-        {/* Items */}
-        <div>
-          <p className="text-xs font-bold text-muted uppercase tracking-wider mb-2">Items</p>
-          <div className="space-y-2">
-            {order.items?.map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl overflow-hidden bg-pink-50 shrink-0">
-                  {item.product?.productImage
-                    ? <img src={item.product.productImage} alt="" className="w-full h-full object-cover"/>
-                    : <div className="w-full h-full flex items-center justify-center text-lg">🍜</div>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-ink text-sm truncate">{item.product?.productName}</p>
-                  <p className="text-muted text-xs">{item.product?.productCategory}</p>
-                </div>
-                <p className="font-bold text-pink text-sm shrink-0">
-                  NPR {item.product?.productPrice?.toLocaleString()}
-                </p>
-              </div>
-            ))}
+          <div className="bg-pink-50 rounded-2xl px-4 py-3">
+            <p className="text-xs font-bold text-pink-600 uppercase tracking-wider mb-1 flex items-center gap-1"><MapPin size={11}/> Deliver to</p>
+            <p className="text-sm font-semibold text-ink">{customer?.userName}</p>
+            <p className="text-xs text-muted">{order.shippingAddress}</p>
+            {customer?.userPhoneNumber && <a href={`tel:${customer.userPhoneNumber}`} className="text-xs text-green-600 font-semibold flex items-center gap-1 mt-1"><Phone size={11}/> {customer.userPhoneNumber}</a>}
           </div>
         </div>
 
-        {/* Total + confirm button */}
-        <div className="flex items-center justify-between pt-2 border-t border-faint">
-          <div>
-            <p className="text-xs text-muted">Total</p>
-            <p className="font-display font-extrabold text-pink text-lg">
-              NPR {order.totalAmount?.toLocaleString()}
-            </p>
-          </div>
-          <button onClick={handleConfirm} disabled={confirming}
-            className="btn-pink gap-2 rounded-xl py-2.5 px-5">
-            {confirming
-              ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
-              : <CheckCircle size={15}/>}
-            {confirming ? 'Confirming…' : 'Confirm Delivery'}
+        <Items order={order} />
+
+        <a href={mapsLink(order)} target="_blank" rel="noreferrer" className="btn-soft w-full justify-center py-2.5 rounded-xl">
+          <Navigation size={14}/> Open directions
+        </a>
+
+        {order.orderStatus !== 'ontheway' ? (
+          <button onClick={pickup} disabled={busy} className="btn-pink w-full justify-center py-3 rounded-xl">
+            {busy ? <span className="spinner"/> : <Package size={15}/>} I've picked up the order
           </button>
+        ) : (
+          <form onSubmit={deliver} className="space-y-2">
+            {sharing && <p className="text-xs text-green-600 flex items-center gap-1"><Radio size={12}/> Sharing your live location with the customer</p>}
+            <label className="block text-xs font-bold text-muted uppercase tracking-wider" htmlFor={`code-${order._id}`}>Customer's delivery code</label>
+            <div className="flex gap-2">
+              <input id={`code-${order._id}`} inputMode="numeric" maxLength={4} pattern="\d{4}" required
+                value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} placeholder="••••"
+                className="input-field text-center text-xl tracking-[0.5em] font-bold w-36" />
+              <button type="submit" disabled={busy || code.length !== 4} className="btn-pink flex-1 justify-center rounded-xl">
+                {busy ? <span className="spinner"/> : <CheckCircle size={15}/>} Confirm delivery
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Earnings() {
+  const [data, setData] = useState(null)
+  useEffect(() => { api.get('/driver/earnings').then(({ ok, data }) => { if (ok) setData(data.data) }) }, [])
+  if (!data) return <div className="skeleton h-48 rounded-3xl" />
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[['Today', data.totals.today], ['Last 7 days', data.totals.week], ['All time', data.totals.allTime]].map(([l, v]) => (
+          <div key={l} className="card p-4">
+            <p className="text-xs text-muted">{l}</p>
+            <p className="font-display font-black text-xl text-ink">NPR {v.toLocaleString()}</p>
+          </div>
+        ))}
+        <div className="card p-4">
+          <p className="text-xs text-muted">Deliveries</p>
+          <p className="font-display font-black text-xl text-ink">{data.totals.deliveries}</p>
         </div>
+      </div>
+      <p className="text-xs text-muted">You earn {data.riderSharePercent}% of each delivery fee.</p>
+      <div className="card divide-y divide-gray-100">
+        {data.history.length === 0 && <p className="p-5 text-sm text-muted text-center">No deliveries yet.</p>}
+        {data.history.map(h => (
+          <div key={h.orderId} className="p-4 flex items-center justify-between gap-3 text-sm">
+            <div className="min-w-0">
+              <p className="font-semibold text-ink truncate">{h.restaurant} → {h.address}</p>
+              <p className="text-xs text-muted">{when(h.deliveredAt)}</p>
+            </div>
+            <span className="font-bold text-green-600 shrink-0">+ NPR {h.earning}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
 export default function DriverOrders() {
-  const { user, logout } = useAuth()
-  const [orders, setOrders]   = useState([])
+  const { user } = useAuth()
+  const socket = useSocket()
+  const [tab, setTab] = useState('active')
+  const [active, setActive] = useState([])
+  const [available, setAvailable] = useState([])
   const [loading, setLoading] = useState(true)
+  const [sharing, setSharing] = useState(false)
+  const watchRef = useRef(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
-    const { ok, data } = await api.get('/driver/orders')
-    if (ok) setOrders(data.data || [])
+    const [a, b] = await Promise.all([api.get('/driver/orders'), user?.isApproved ? api.get('/driver/orders/available') : Promise.resolve({ ok: false })])
+    if (a.ok) setActive(a.data.data || [])
+    if (b.ok) setAvailable(b.data.data || [])
     setLoading(false)
-  }
+  }, [user?.isApproved])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
-  const handleDelivered = (orderId) => {
-    setOrders(prev => prev.filter(o => o._id !== orderId))
-  }
+  useSocketEvent('order:available', useCallback(({ restaurant }) => {
+    toast(`🛵 New delivery from ${restaurant}`)
+    showSystemNotification('New delivery available', `Pick up from ${restaurant}`)
+    load()
+  }, [load]))
+
+  // Share GPS position for orders that are out for delivery
+  const onTheWay = active.filter(o => o.orderStatus === 'ontheway').map(o => o._id).join(',')
+  useEffect(() => {
+    if (!socket || !onTheWay || !navigator.geolocation) { setSharing(false); return }
+    let last = 0
+    watchRef.current = navigator.geolocation.watchPosition(
+      pos => {
+        if (Date.now() - last < 10000) return    // at most every 10s
+        last = Date.now()
+        onTheWay.split(',').forEach(orderId =>
+          socket.emit('driver:location', { orderId, lat: pos.coords.latitude, lng: pos.coords.longitude }))
+        setSharing(true)
+      },
+      () => setSharing(false),
+      { enableHighAccuracy: true, maximumAge: 5000 }
+    )
+    return () => navigator.geolocation.clearWatch(watchRef.current)
+  }, [socket, onTheWay])
+
+  if (user && !user.isApproved) return (
+    <div className="page-wrap max-w-lg mx-auto text-center py-20">
+      <title>Rider · MetMoMo</title>
+      <div className="text-6xl mb-4">⏳</div>
+      <h1 className="font-display font-bold text-2xl text-ink mb-2">Waiting for approval</h1>
+      <p className="text-muted">An admin needs to approve your rider account before you can take deliveries. We'll be quick!</p>
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-pink-50">
-
-      {/* Driver header bar */}
-      <div className="bg-white border-b border-faint sticky top-0 z-40 shadow-card">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-400 to-yellow-500 text-white font-display font-black text-base flex items-center justify-center shadow-sm">
-              🛵
-            </div>
-            <div>
-              <p className="font-display font-bold text-ink text-sm">{user?.userName}</p>
-              <p className="text-muted text-[11px]">Delivery Driver</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={load}
-              className="w-9 h-9 rounded-xl bg-pink-50 text-pink flex items-center justify-center hover:bg-pink-100 transition-colors">
-              <RefreshCw size={15}/>
-            </button>
-            <button onClick={logout}
-              className="text-xs font-semibold text-red-500 hover:text-red-700 px-3 py-2 rounded-xl hover:bg-red-50 transition-colors">
-              Sign Out
-            </button>
-          </div>
+    <div className="page-wrap max-w-3xl mx-auto">
+      <title>Rider deliveries · MetMoMo</title>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 className="font-display font-black text-2xl text-ink">Hi {user?.userName?.split(' ')[0]} 🛵</h1>
+          <p className="text-muted text-sm">{active.length} active · {available.length} available</p>
         </div>
+        <button onClick={load} className="btn-ghost-pink gap-1.5 text-sm"><RefreshCw size={14}/> Refresh</button>
       </div>
 
-      {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="flex gap-2 mb-6" role="tablist">
+        {[['active', `My deliveries (${active.length})`], ['available', `Available (${available.length})`], ['earnings', 'Earnings']].map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={tab === k ? 'chip-active' : 'chip-idle'}>
+            {k === 'earnings' && <Wallet size={13} className="mr-1"/>}{l}
+          </button>
+        ))}
+      </div>
 
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="font-display font-black text-2xl text-ink">Pending Deliveries</h1>
-            <p className="text-muted text-sm mt-0.5">{orders.length} order{orders.length !== 1 ? 's' : ''} to deliver</p>
+      {tab === 'earnings' ? <Earnings /> : loading ? (
+        <div className="space-y-4">{[1, 2].map(i => <div key={i} className="skeleton h-56 rounded-3xl" />)}</div>
+      ) : tab === 'active' ? (
+        active.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-5xl mb-3">📭</div>
+            <p className="text-muted">No active deliveries. Check the Available tab.</p>
           </div>
-        </div>
-
-        {loading ? (
-          <div className="space-y-4">
-            {[1,2,3].map(i => <div key={i} className="skeleton h-56 rounded-3xl"/>)}
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-24">
-            <div className="text-6xl mb-4">📦</div>
-            <h3 className="font-display font-bold text-xl text-ink mb-2">No deliveries right now</h3>
-            <p className="text-muted text-sm mb-5">Orders marked "Out for Delivery" will appear here.</p>
-            <button onClick={load} className="btn-pink gap-2"><RefreshCw size={14}/> Refresh</button>
+        ) : (
+          <div className="space-y-4">{active.map(o => <ActiveCard key={o._id} order={o} onChanged={load} sharing={sharing} />)}</div>
+        )
+      ) : (
+        available.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-5xl mb-3">🍜</div>
+            <p className="text-muted">No orders waiting for a rider right now.</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.map(order => (
-              <OrderCard key={order._id} order={order} onDelivered={handleDelivered}/>
+            {available.map(o => (
+              <AvailableCard key={o._id} order={o}
+                onAccepted={(order) => { setAvailable(a => a.filter(x => x._id !== order._id)); setActive(a => [order, ...a]); setTab('active') }}
+                onDeclined={(id) => setAvailable(a => a.filter(x => x._id !== id))} />
             ))}
           </div>
-        )}
-      </div>
+        )
+      )}
     </div>
   )
 }

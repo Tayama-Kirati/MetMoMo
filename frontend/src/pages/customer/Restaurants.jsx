@@ -45,7 +45,7 @@ export default function Restaurants() {
         || r.description?.toLowerCase().includes(q)
         || (r.cuisine || []).some(c => c.toLowerCase().includes(q))
 
-      if (filter === 'open')     return ms && r.isOpen
+      if (filter === 'open')     return ms && (r.acceptingOrders ?? r.isOpen)
       if (filter === 'popular')  return ms && r.isPopular
       if (filter === 'featured') return ms && r.isFeatured
       if (filter === 'free')     return ms && r.deliveryFee === 0
@@ -53,10 +53,12 @@ export default function Restaurants() {
     })
   }, [restaurants, search, filter])
 
-  const openCount = restaurants.filter(r => r.isOpen).length
+  const openCount = restaurants.filter(r => r.acceptingOrders ?? r.isOpen).length
 
   return (
     <div>
+      <title>Restaurants near you · MetMoMo</title>
+      <meta name="description" content="Order momos and Nepali food from the best restaurants in Kathmandu, Lalitpur and Bhaktapur." />
       {/* ── Header ── */}
       <div className="bg-pink text-white py-10">
         <div className="wrap">

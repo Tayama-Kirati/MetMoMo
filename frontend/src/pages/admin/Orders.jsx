@@ -1,7 +1,8 @@
 // Admin Orders
-import { useEffect, useState } from 'react'
-import { Search, Package, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
-import { api, ROUTES } from '../../services/api'
+import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Search, Package, RefreshCw, ChevronDown, ChevronUp, Download, Undo2 } from 'lucide-react'
+import { api, ROUTES, download } from '../../services/api'
 import toast from 'react-hot-toast'
 
 const STATUSES = ['pending','confirmed','preparation','ontheway','delivered','cancelled']
@@ -15,14 +16,36 @@ export default function AdminOrders() {
   const [statusFilter, setStatus] = useState('all')
   const [updating, setUpdating] = useState(null)
   const [expanded, setExpanded] = useState(null)
+  const [params] = useSearchParams()
+  const payment = params.get('payment') || ''
+  const [page, setPage] = useState(1)
+  const [pages, setPages] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true)
-    api.get(ROUTES.allOrders).catch(() => api.get(ROUTES.orders))
-      .then(({ ok, data }) => { if (ok) setOrders(data.orders || []) })
+    const qs = new URLSearchParams({ page: String(page), limit: '100' })
+    if (payment) qs.set('payment', payment)
+    api.get(`${ROUTES.allOrders}?${qs}`)
+      .then(({ ok, data }) => { if (ok) { setOrders(data.orders || []); setPages(data.pages || 1); setTotal(data.total || 0) } })
       .finally(() => setLoading(false))
+  }, [page, payment])
+  useEffect(() => { load() }, [load])
+
+  const exportCsv = async () => {
+    const qs = new URLSearchParams()
+    if (statusFilter !== 'all') qs.set('status', statusFilter)
+    if (payment) qs.set('payment', payment)
+    const ok = await download(`${ROUTES.adminOrdersCsv}?${qs}`, `metmomo-orders-${new Date().toISOString().slice(0, 10)}.csv`)
+    if (!ok) toast.error('Export failed')
   }
-  useEffect(() => { load() }, [])
+
+  const markRefunded = async (orderId) => {
+    if (!confirm('Confirm you have refunded this payment in Khalti/eSewa?')) return
+    const { ok, data } = await api.patch(ROUTES.adminRefund(orderId))
+    if (ok) { setOrders(prev => prev.map(o => o._id === orderId ? data.data : o)); toast.success('Marked as refunded') }
+    else toast.error(data?.message || 'Could not update')
+  }
 
   const updateStatus = async (orderId, newStatus) => {
     setUpdating(orderId + newStatus)
@@ -40,12 +63,16 @@ export default function AdminOrders() {
 
   return (
     <div className="page-wrap">
+      <title>Orders · Admin · MetMoMo</title>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-display font-black text-3xl text-ink">All Orders</h1>
-          <p className="text-muted mt-1">{orders.length} total</p>
+          <p className="text-muted mt-1">{total} total{payment ? ` · payment: ${payment}` : ''}</p>
         </div>
-        <button onClick={load} className="btn-outline text-sm gap-2 self-start"><RefreshCw size={13}/> Refresh</button>
+        <div className="flex gap-2 self-start">
+          <button onClick={exportCsv} className="btn-outline text-sm gap-2"><Download size={13}/> Export CSV</button>
+          <button onClick={load} className="btn-outline text-sm gap-2"><RefreshCw size={13}/> Refresh</button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-5">
@@ -77,6 +104,7 @@ export default function AdminOrders() {
                     </div>
                     <p className="text-muted text-xs">{o.createdAt?new Date(o.createdAt).toLocaleString():'—'}</p>
                     {o.user && <p className="text-ink text-xs font-semibold mt-0.5">{o.user.userName} · {o.user.userEmail}</p>}
+                    {o.restaurant && <p className="text-muted text-xs">🏪 {o.restaurant.name}{o.driver ? ` · 🛵 ${o.driver.userName}` : ''}</p>}
                     <p className="text-muted text-xs">📍 {o.shippingAddress}</p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -93,7 +121,7 @@ export default function AdminOrders() {
                     <div className="flex flex-wrap gap-2">
                       {(o.items||[]).map((item,i)=>(
                         <div key={i} className="flex items-center gap-1.5 bg-pink-50 border border-pink-100 rounded-xl px-3 py-1.5 text-xs">
-                          <span className="font-display font-bold text-ink">{item.product?.productName||'Item'}</span>
+                          <span className="font-display font-bold text-ink">{item.name||item.product?.productName||'Item'}</span>
                           <span className="text-muted">×{item.quantity}</span>
                           <span className="text-pink font-bold">NPR {((item.price||0)*item.quantity).toLocaleString()}</span>
                         </div>
@@ -110,12 +138,21 @@ export default function AdminOrders() {
                         ))}
                       </div>
                     </div>
-                    {o.rating && <p className="text-sm text-muted">Customer rated: {'⭐'.repeat(o.rating)} {o.review&&`— "${o.review}"`}</p>}
+                    {o.paymentDetails?.status === 'refund_pending' && (
+                      <button onClick={() => markRefunded(o._id)} className="btn-outline text-sm gap-2"><Undo2 size={13}/> Mark refund as done</button>
+                    )}
                   </div>
                 )}
               </div>
             )
           })}
+        </div>
+      )}
+      {pages > 1 && (
+        <div className="flex justify-center items-center gap-3 mt-8">
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="btn-outline py-2 disabled:opacity-40">← Prev</button>
+          <span className="text-sm text-muted">Page {page} of {pages}</span>
+          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="btn-outline py-2 disabled:opacity-40">Next →</button>
         </div>
       )}
     </div>

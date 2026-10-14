@@ -20,7 +20,6 @@ export default function ProductCard({ product, layout = 'grid' }) {
     setAdding(true)
     const res = await addToCart(product._id)
     if (res.ok) toast.success(`${product.productName} added!`)
-    else toast.error('Could not add to cart')
     setAdding(false)
   }
 

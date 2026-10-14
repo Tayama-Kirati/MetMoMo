@@ -171,3 +171,58 @@
     @apply absolute -top-1 -right-1 w-4 h-4 bg-pink text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-blush;
   }
 }
+/* ---------------- DARK MODE ----------------
+   Toggled by PreferencesContext adding `dark` to <html>. Pages use fixed light
+   utility classes, so these overrides remap the common surfaces and text colours. */
+html.dark { color-scheme: dark; }
+html.dark body { background-color: #17111A; color: #F3E8EE; }
+
+html.dark .bg-white,
+html.dark .card,
+html.dark .menu-category-box,
+html.dark .btn-white,
+html.dark .chip-idle { background-color: #231A27 !important; }
+html.dark .bg-white\/95,
+html.dark .bg-white\/90 { background-color: rgba(35, 26, 39, 0.95) !important; }
+
+html.dark .bg-pink-50,
+html.dark .bg-pink-100,
+html.dark .bg-rose-light,
+html.dark .bg-pinkgray,
+html.dark .stripe-bg,
+html.dark .card-pink,
+html.dark .bg-blush,
+html.dark .bg-gray-50,
+html.dark .bg-gray-100 { background-color: #2E2232 !important; }
+html.dark .menu-category-header { background-image: none; background-color: #2E2232; }
+
+html.dark .text-ink,
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700 { color: #F3E8EE !important; }
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-slate,
+html.dark .section-title { color: #CDBFC7 !important; }
+html.dark .text-muted,
+html.dark .text-gray-400 { color: #9C8F97 !important; }
+
+html.dark .border-faint,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-pink-100,
+html.dark .border-pink-200,
+html.dark .border-blush { border-color: #3B2D40 !important; }
+
+html.dark input,
+html.dark select,
+html.dark textarea,
+html.dark .input-field { background-color: #1D1520 !important; color: #F3E8EE !important; border-color: #3B2D40 !important; }
+html.dark ::placeholder { color: #7D7079 !important; }
+
+html.dark .shadow-card,
+html.dark .shadow-card-lg,
+html.dark .shadow-float { box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45) !important; }
+
+html.dark ::-webkit-scrollbar-track { background: #231A27; }
+html.dark ::-webkit-scrollbar-thumb { background: #4B3A50; }

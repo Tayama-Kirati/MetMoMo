@@ -1,73 +1,50 @@
+// Express app (no network listener) — server.js starts it, tests import it directly.
 const express = require("express");
-const http    = require("http");
 const cors    = require("cors");
+const helmet  = require("helmet");
 const path    = require("path");
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
-const { connectDatabase } = require("./database/database");
-const app    = express();
-const server = http.createServer(app);
+const { apiLimiter } = require("./middleware/rateLimits");
+const errorHandler   = require("./middleware/errorHandler");
 
-// ── Socket.io ──────────────────────────────────────────────
-const { Server } = require("socket.io");
-const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
-});
+const app = express();
 
- 
-global._io = io;
+const corsOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || "http://localhost:5173")
+  .split(",").map(s => s.trim()).filter(Boolean);
 
-io.on("connection", (socket) => {
-  socket.on("join", (userId) => {
-    if (userId) socket.join(userId)
-  })
-  socket.on("disconnect", () => {})
-});
- 
+if (process.env.TRUST_PROXY) app.set("trust proxy", Number(process.env.TRUST_PROXY) || 1);
 
-app.use(cors({ origin: ["*"], credentials: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Images are loaded by the frontend from another origin, so allow cross-origin reads
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-const authRouter       = require("./router/auth/authRouter");
-const productRouter    = require("./router/admin/productRouter");
-const adminUsersRouter = require("./router/admin/adminUsersRouter");
-const userReviewRouter = require("./router/user/userReviewRouter");
-const profileRoute     = require("./router/user/profileRoute");
-const cartRoute        = require("./router/user/cartRoute");
-const orderRoute       = require("./router/user/orderRoute");
-const paymentRoute     = require("./router/user/paymentRoute");
-const restaurantRouter = require("./router/admin/restaurantRouter");
-const ownerRouter      = require("./router/owner/ownerRouter");
-const deliveryRouter   = require("./router/delivery/deliveryRouter");
-const driverRouter     = require("./router/driver/driverRouter");
+app.use("/api", apiLimiter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "Metmomo API is live!", status: "ok" });
 });
+app.get("/api/health", (req, res) => res.status(200).json({ status: "ok" }));
 
-app.use("/api/auth",        authRouter);
-app.use("/api/products",    productRouter);
-app.use("/api/admin",       adminUsersRouter);
-app.use("/api/reviews",     userReviewRouter);
-app.use("/api/profile",     profileRoute);
-app.use("/api/cart",        cartRoute);
-app.use("/api/orders",      orderRoute);
-app.use("/api/payment",     paymentRoute);
-app.use("/api/restaurants", restaurantRouter);
-app.use("/api/owner",       ownerRouter);
-app.use("/api/delivery",    deliveryRouter);
-app.use("/api/driver",      driverRouter);
+app.use("/api/auth",        require("./router/auth/authRouter"));
+app.use("/api/products",    require("./router/admin/productRouter"));
+app.use("/api/admin",       require("./router/admin/adminUsersRouter"));
+app.use("/api/reviews",     require("./router/user/userReviewRouter"));
+app.use("/api/profile",     require("./router/user/profileRoute"));
+app.use("/api/cart",        require("./router/user/cartRoute"));
+app.use("/api/orders",      require("./router/user/orderRoute"));
+app.use("/api/coupons",     require("./router/user/couponRoute"));
+app.use("/api/payment",     require("./router/user/paymentRoute"));
+app.use("/api/restaurants", require("./router/admin/restaurantRouter"));
+app.use("/api/owner",       require("./router/owner/ownerRouter"));
+app.use("/api/delivery",    require("./router/delivery/deliveryRouter"));
+app.use("/api/driver",      require("./router/driver/driverRouter"));
+app.use("/api/ai",          require("./router/ai/aiRouter"));
 
-app.use((err, req, res, next) => {
-  console.error(err.message);
-  res.status(err.status || 500).json({ message: err.message || "Internal server error" });
-});
-
-const PORT = process.env.PORT || 4000;
-connectDatabase(process.env.MONGO_URI).then(() => {
-  server.listen(PORT, () => console.log(`Server running → http://localhost:${PORT}`));
-});
+app.use("/api", (req, res) => res.status(404).json({ message: "Route not found" }));
+app.use(errorHandler);
 
 module.exports = app;
+module.exports.corsOrigins = corsOrigins;

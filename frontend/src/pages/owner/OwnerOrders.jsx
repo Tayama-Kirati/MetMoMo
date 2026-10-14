@@ -1,22 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { api } from '../../services/api'
 import toast from 'react-hot-toast'
-import { RefreshCw, ChevronDown, ChevronUp, Clock, Phone, Mail, Package } from 'lucide-react'
+import { RefreshCw, ChevronDown, ChevronUp, Clock, Phone, Mail, Package, Bike, BellRing } from 'lucide-react'
+import { useSocketEvent, showSystemNotification } from '../../context/SocketContext'
+import { playChime } from '../../utils/sound'
 
-const STATUS_FLOW = ['pending', 'confirmed', 'ontheway', 'delivered']
+const STATUS_FLOW = ['pending', 'confirmed', 'preparation', 'ontheway', 'delivered']
 
 const STATUS_STYLE = {
   pending:   { label: 'Pending',    bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' },
   confirmed: { label: 'Confirmed',  bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-200'   },
+  preparation: { label: 'Preparing', bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' },
   ontheway:  { label: 'On the Way', bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
   delivered: { label: 'Delivered',  bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-200'  },
   cancelled: { label: 'Cancelled',  bg: 'bg-red-100',    text: 'text-red-600',    border: 'border-red-200'    },
 }
 
 const NEXT_ACTIONS = {
-  pending:   { label: 'Confirm Order',    next: 'confirmed' },
-  confirmed: { label: 'Out for Delivery', next: 'ontheway'  },
-  // ontheway: customer confirms delivery — no owner action here
+  pending:     { label: 'Accept order',    next: 'confirmed'   },
+  confirmed:   { label: 'Start preparing', next: 'preparation' },
+  preparation: { label: 'Handed to rider', next: 'ontheway', needsRider: true },
+  // ontheway: rider confirms delivery with the customer's code
 }
 
 function OrderCard({ order, onStatusUpdate }) {
@@ -25,6 +29,7 @@ function OrderCard({ order, onStatusUpdate }) {
   const [cancelling, setCancelling] = useState(false)
   const st = STATUS_STYLE[order.orderStatus] || STATUS_STYLE.pending
   const nextAction = NEXT_ACTIONS[order.orderStatus]
+  const blocked = nextAction?.needsRider && !order.driver
   const customer = order.user
 
   const advance = async () => {
@@ -37,7 +42,7 @@ function OrderCard({ order, onStatusUpdate }) {
   }
 
   const cancel = async () => {
-    if (!confirm('Cancel this order?')) return
+    if (!confirm(order.orderStatus === 'pending' ? 'Reject this order?' : 'Cancel this order?')) return
     setCancelling(true)
     const { ok, data } = await api.patch(`/owner/orders/${order._id}/status`, { status: 'cancelled' })
     if (ok) { toast.success('Order cancelled'); onStatusUpdate(order._id, 'cancelled') }
@@ -61,6 +66,11 @@ function OrderCard({ order, onStatusUpdate }) {
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${st.bg} ${st.text} ${st.border}`}>
               {st.label}
             </span>
+            {order.scheduledFor && (
+              <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Clock size={10}/> {new Date(order.scheduledFor).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
+              </span>
+            )}
             {order.paymentDetails?.method && (
               <span className="text-[10px] text-muted bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
                 {order.paymentDetails.method}
@@ -110,15 +120,22 @@ function OrderCard({ order, onStatusUpdate }) {
                       : <div className="w-full h-full flex items-center justify-center text-lg">🍜</div>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-ink text-sm truncate">{item.product?.productName || 'Item'}</p>
+                    <p className="font-semibold text-ink text-sm truncate">{item.name || item.product?.productName || 'Item'}</p>
                     <p className="text-muted text-xs">{item.product?.productCategory} · Qty: {item.quantity}</p>
                   </div>
                   <p className="font-bold text-pink text-sm shrink-0">
-                    NPR {((item.product?.productPrice || 0) * item.quantity).toLocaleString()}
+                    NPR {((item.price ?? item.product?.productPrice ?? 0) * item.quantity).toLocaleString()}
                   </p>
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-2xl p-3 flex items-center gap-2 text-sm">
+            <Bike size={15} className="text-muted"/>
+            {order.driver
+              ? <span className="text-ink"><b>{order.driver.userName}</b> is delivering{order.driver.userPhoneNumber && <> · <a className="text-green-600" href={`tel:${order.driver.userPhoneNumber}`}>{order.driver.userPhoneNumber}</a></>}</span>
+              : <span className="text-muted">No rider assigned yet — riders see this order once you accept it.</span>}
           </div>
 
           {/* Progress steps */}
@@ -139,21 +156,21 @@ function OrderCard({ order, onStatusUpdate }) {
           <div className="flex gap-2 pt-1 flex-col">
             {order.orderStatus === 'ontheway' && (
               <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 text-sm text-orange-700 font-semibold text-center">
-                🛵 Waiting for customer to confirm delivery
+                🛵 Out for delivery — the rider confirms with the customer's code
               </div>
             )}
             <div className="flex gap-2">
               {nextAction && (
-                <button onClick={advance} disabled={updating}
+                <button onClick={advance} disabled={updating || blocked} title={blocked ? 'Waiting for a rider to accept' : ''}
                   className="btn-pink flex-1 justify-center text-sm py-2.5 gap-2 rounded-xl">
                   {updating && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>}
-                  {nextAction.label}
+                  {blocked ? 'Waiting for a rider…' : nextAction.label}
                 </button>
               )}
               {['pending','confirmed'].includes(order.orderStatus) && (
                 <button onClick={cancel} disabled={cancelling}
                   className="px-4 py-2.5 rounded-xl text-sm font-semibold text-red-500 border border-red-200 hover:bg-red-50 transition-colors">
-                  {cancelling ? '...' : 'Cancel'}
+                  {cancelling ? '...' : order.orderStatus === 'pending' ? 'Reject' : 'Cancel'}
                 </button>
               )}
             </div>
@@ -164,21 +181,36 @@ function OrderCard({ order, onStatusUpdate }) {
   )
 }
 
-const FILTERS = ['all', 'pending', 'confirmed', 'ontheway', 'delivered', 'cancelled']
+const FILTERS = ['all', 'pending', 'confirmed', 'preparation', 'ontheway', 'delivered', 'cancelled']
 
 export default function OwnerOrders() {
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter]   = useState('all')
 
-  const load = async () => {
-    setLoading(true)
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true)
     const { ok, data } = await api.get('/owner/orders')
     if (ok) setOrders(data.data || [])
     setLoading(false)
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
+
+  // New order alert: chime + toast + system notification, then refresh
+  useSocketEvent('order:new', useCallback(({ total, items }) => {
+    playChime()
+    toast(`🔔 New order · ${items} item${items === 1 ? '' : 's'} · NPR ${total}`, { duration: 8000 })
+    showSystemNotification('New order received', `${items} item(s) · NPR ${total}`)
+    load(true)
+  }, [load]))
+  useSocketEvent('order:updated', useCallback(() => load(true), [load]))
+
+  const enableAlerts = async () => {
+    playChime()
+    if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission()
+    toast.success('Order alerts on')
+  }
 
   const handleStatusUpdate = (orderId, newStatus) => {
     setOrders(prev => prev.map(o => o._id === orderId ? { ...o, orderStatus: newStatus } : o))
@@ -195,6 +227,7 @@ export default function OwnerOrders() {
 
   return (
     <div className="page-wrap max-w-3xl mx-auto">
+      <title>Orders · Restaurant dashboard</title>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -209,9 +242,14 @@ export default function OwnerOrders() {
           </h1>
           <p className="text-muted text-sm mt-0.5">{orders.length} total orders</p>
         </div>
-        <button onClick={load} className="btn-ghost gap-1.5 text-sm">
-          <RefreshCw size={13}/> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={enableAlerts} className="btn-ghost-pink gap-1.5 text-sm" title="Play a sound and show a notification for new orders">
+            <BellRing size={13}/> Alerts
+          </button>
+          <button onClick={() => load()} className="btn-ghost-pink gap-1.5 text-sm">
+            <RefreshCw size={13}/> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter tabs */}

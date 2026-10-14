@@ -1,145 +1,155 @@
+const crypto = require("crypto");
 const User = require("../../models/userModel");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const sendEmail = require("../../services/sendEmail");
-const catchAsync = require("../../services/catchAsync");
+const { signToken } = require("../../services/tokens");
+
+const OTP_TTL_MS       = 15 * 60 * 1000;
+const MAX_OTP_ATTEMPTS = 5;
+
+const publicUser = (u) => ({
+  _id: u._id,
+  userName: u.userName,
+  userEmail: u.userEmail,
+  userRole: u.userRole,
+  isApproved: u.isApproved,
+});
+
+const normaliseEmail = (email) => String(email || "").trim().toLowerCase();
 
 // POST /api/auth/register
-exports.registerUser = catchAsync(async (req, res) => {
-  const { email, userName, phoneNumber, password, firstName, lastName, userRole } = req.body;
+exports.registerUser = async (req, res) => {
+  const { userName, phoneNumber, password, firstName, lastName, userRole } = req.body;
+  const email = normaliseEmail(req.body.email);
 
-  if (!email || !userName || !phoneNumber || !password) {
-    return res.status(400).json({ message: "Please provide email, password, name and phoneNumber" });
-  }
-
-  const existing = await User.find({ userEmail: email });
-  if (existing.length > 0) {
+  if (await User.exists({ userEmail: email })) {
     return res.status(400).json({ message: "User with that email is already registered" });
   }
 
-  // Only allow public registration for customer or restaurant_owner
-  const allowedRoles = ['customer', 'restaurant_owner'];
-  const role = allowedRoles.includes(userRole) ? userRole : 'customer';
+  // Public sign-up: customers, restaurant owners and riders (riders need admin approval)
+  const allowedRoles = ["customer", "restaurant_owner", "delivery_rider"];
+  const role = allowedRoles.includes(userRole) ? userRole : "customer";
 
   const newUser = await User.create({
     userName,
-    firstName: firstName || '',
-    lastName:  lastName  || '',
+    firstName: firstName || "",
+    lastName:  lastName  || "",
     userPhoneNumber: String(phoneNumber),
     userEmail: email,
     userPassword: bcrypt.hashSync(password, 10),
     userRole: role,
+    isApproved: role !== "delivery_rider",
   });
-
-  const token = jwt.sign({ id: newUser._id, email: newUser.userEmail }, process.env.SECRET_KEY, { expiresIn: "30d" });
 
   return res.status(201).json({
-    message: "User registered successfully",
-    token,
-    user: {
-      _id: newUser._id,
-      userName: newUser.userName,
-      userEmail: newUser.userEmail,
-      userRole: newUser.userRole,
-    },
+    message: role === "delivery_rider"
+      ? "Registered! An admin will approve your rider account shortly."
+      : "User registered successfully",
+    token: signToken(newUser),
+    user: publicUser(newUser),
   });
-});
+};
 
- 
-exports.loginUser = catchAsync(async (req, res) => {
-  const { email, password } = req.body;
+// POST /api/auth/login
+exports.loginUser = async (req, res) => {
+  const email = normaliseEmail(req.body.email);
+  const { password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "Please provide email and password" });
+  const user = await User.findOne({ userEmail: email }).select("+userPassword");
+  // Same message for unknown email and wrong password, so emails can't be probed
+  if (!user || !bcrypt.compareSync(password, user.userPassword)) {
+    return res.status(400).json({ message: "Incorrect email or password" });
+  }
+  if (user.isBlocked) {
+    return res.status(403).json({ message: "Your account has been blocked. Contact support." });
   }
 
-  const userFound = await User.find({ userEmail: email });
-  if (!userFound.length) {
-    return res.status(404).json({ message: "User with that email is not registered" });
-  }
-
-  const isPasswordCorrect = bcrypt.compareSync(password, userFound[0].userPassword);
-
-  if (!isPasswordCorrect) {
-    return res.status(400).json({ message: "Incorrect password" });
-  }
-
-  userFound[0].lastLogin = new Date();
-  await userFound[0].save();
-
-  const token = jwt.sign({ id: userFound[0]._id, email: userFound[0].userEmail }, process.env.SECRET_KEY, { expiresIn: "30d" });
+  user.lastLogin = new Date();
+  await user.save();
 
   return res.status(200).json({
     message: "User logged in successfully",
-    token,
-    user: {
-      _id: userFound[0]._id,
-      userName: userFound[0].userName,
-      userEmail: userFound[0].userEmail,
-      userRole: userFound[0].userRole,
-    },
+    token: signToken(user),
+    user: publicUser(user),
   });
-});
+};
 
- 
-exports.forgotPassword = catchAsync(async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ message: "Please provide email" });
+// POST /api/auth/forgotpassword
+exports.forgotPassword = async (req, res) => {
+  const email = normaliseEmail(req.body.email);
+  const generic = { message: "If that email is registered, an OTP has been sent." };
 
-  const userFound = await User.find({ userEmail: email });
-  if (!userFound.length) return res.status(404).json({ message: "User with that email is not registered" });
+  const user = await User.findOne({ userEmail: email });
+  if (!user) return res.json(generic);
 
-  const otp = Math.floor(1000 + Math.random() * 9000);
-  userFound[0].otp = otp;
-  await userFound[0].save();
+  const otp = crypto.randomInt(100000, 1000000);   // 6 digits
+  user.otp = otp;
+  user.otpExpires = new Date(Date.now() + OTP_TTL_MS);
+  user.otpAttempts = 0;
+  user.otpIsVerified = false;
+  await user.save();
 
   try {
     await sendEmail({
-      email: userFound[0].userEmail,
-      subject: "MoMoGo – Password Reset OTP",
+      email: user.userEmail,
+      subject: "MetMoMo – Password Reset OTP",
       message: `Your OTP is ${otp}. Valid for 15 minutes. Don't share it with anyone.`,
     });
-    res.json({ message: "OTP sent to your email" });
-  } catch {
-    
-    res.json({ message: "OTP generated (email not configured)", otp });
+  } catch (err) {
+    // Never return the OTP in the response — log it for local development only
+    console.error("Could not send OTP email:", err.message);
+    if (process.env.NODE_ENV !== "production") console.log(`[dev] OTP for ${email}: ${otp}`);
   }
-});
+  res.json(generic);
+};
 
- 
-exports.verifyOtp = catchAsync(async (req, res) => {
-  const { email, otp } = req.body;
-  if (!email || !otp) return res.status(400).json({ message: "Please provide email and otp" });
+// POST /api/auth/verifyotp
+exports.verifyOtp = async (req, res) => {
+  const email = normaliseEmail(req.body.email);
+  const { otp } = req.body;
 
-  const userFound = await User.find({ userEmail: email }).select("+otp +otpIsVerified");
-  if (!userFound.length) return res.status(404).json({ message: "User not found" });
+  const user = await User.findOne({ userEmail: email }).select("+otp +otpExpires +otpAttempts +otpIsVerified");
+  if (!user || !user.otp) return res.status(400).json({ message: "Invalid or expired OTP" });
 
-  if (Number(userFound[0].otp) !== Number(otp)) {
+  if (!user.otpExpires || user.otpExpires < new Date() || user.otpAttempts >= MAX_OTP_ATTEMPTS) {
+    user.otp = undefined;
+    await user.save();
+    return res.status(400).json({ message: "OTP expired. Please request a new one." });
+  }
+
+  if (Number(user.otp) !== Number(otp)) {
+    user.otpAttempts += 1;
+    await user.save();
     return res.status(400).json({ message: "Invalid OTP" });
   }
 
-  userFound[0].otp = undefined;
-  userFound[0].otpIsVerified = true;  
-  await userFound[0].save();
+  user.otp = undefined;
+  user.otpIsVerified = true;
+  user.otpExpires = new Date(Date.now() + OTP_TTL_MS);   // window to set the new password
+  await user.save();
 
   res.status(200).json({ message: "OTP verified. You can now reset your password." });
-});
- 
-exports.resetPassword = catchAsync(async (req, res) => {
-  const { email, newPassword, confirmPassword } = req.body;
+};
 
-  if (!email || !newPassword || !confirmPassword) {
-    return res.status(400).json({ message: "Please provide email, newPassword and confirmPassword" });
-  }
+// POST /api/auth/resetpassword — only after a successful OTP verification
+exports.resetPassword = async (req, res) => {
+  const email = normaliseEmail(req.body.email);
+  const { newPassword, confirmPassword } = req.body;
+
   if (newPassword !== confirmPassword) {
     return res.status(400).json({ message: "Passwords do not match" });
   }
 
-  const userExists = await User.find({ userEmail: email });
-  if (!userExists.length) return res.status(404).json({ message: "User not found" });
+  const user = await User.findOne({ userEmail: email }).select("+otpIsVerified +otpExpires");
+  if (!user || !user.otpIsVerified || !user.otpExpires || user.otpExpires < new Date()) {
+    return res.status(403).json({ message: "Please verify the OTP sent to your email first" });
+  }
 
-  userExists[0].userPassword = bcrypt.hashSync(newPassword, 10);
-  await userExists[0].save();
+  user.userPassword = bcrypt.hashSync(newPassword, 10);
+  user.passwordChangedAt = new Date();
+  user.otpIsVerified = false;
+  user.otpExpires = undefined;
+  await user.save();
 
   res.status(200).json({ message: "Password reset successfully" });
-});
+};

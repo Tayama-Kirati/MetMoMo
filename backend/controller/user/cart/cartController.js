@@ -20,7 +20,19 @@ exports.addToCart= async(req, res)=>{
       message : "No product with that productId"
     })
   }
-  const user = await User.findById(userId)
+  if (productExist.productStatus !== "available") {
+    return res.status(400).json({ message: `${productExist.productName} is sold out right now` })
+  }
+  const user = await User.findById(userId).populate("cart", "restaurant")
+  // One restaurant per order — keep the cart consistent with checkout rules
+  const other = user.cart.find(p => String(p.restaurant || "") !== String(productExist.restaurant || ""))
+  if (other) {
+    return res.status(409).json({ message: "Your cart has items from another restaurant. Check out or clear it first." })
+  }
+  if (user.cart.length >= 50) {
+    return res.status(400).json({ message: "Your cart is full" })
+  }
+  user.cart = user.cart.map(p => p._id)
   user.cart.push(productId);
   await user.save()
   res.status(200).json({
@@ -62,4 +74,21 @@ await user.save()
 res.status(200).json({
   message : "Item removed From Cart"
 })
+}
+
+// PATCH /api/cart/:productId  { quantity }  — set how many of an item are in the cart
+exports.setCartQuantity = async (req, res) => {
+  const { productId } = req.params
+  const quantity = Math.floor(Number(req.body.quantity))
+  if (!Number.isFinite(quantity) || quantity < 0 || quantity > 20) {
+    return res.status(400).json({ message: "Quantity must be between 0 and 20" })
+  }
+  const user = await User.findById(req.user.id)
+  const has = user.cart.some(id => String(id) === String(productId))
+  if (!has && quantity > 0) return res.status(404).json({ message: "Item is not in your cart" })
+
+  user.cart = user.cart.filter(id => String(id) !== String(productId))
+  for (let i = 0; i < quantity; i++) user.cart.push(productId)
+  await user.save()
+  res.status(200).json({ message: "Cart updated" })
 }

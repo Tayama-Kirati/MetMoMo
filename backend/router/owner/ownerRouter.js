@@ -2,10 +2,9 @@ const express    = require('express')
 const router     = express.Router()
 const isAuthenticated = require('../../middleware/isAuthenticated')
 const restrictTo      = require('../../middleware/restrictTo')
-const { multer, storage } = require('../../middleware/multerConfig')
+const { upload }      = require('../../services/storage')
 const catchAsync  = require('../../services/catchAsync')
-
-const upload = multer({ storage })
+const { aiLimiter } = require('../../middleware/rateLimits')
 
 const {
   getMyRestaurant,
@@ -17,6 +16,8 @@ const {
   toggleMyProductStatus,
   deleteMyProduct,
   getMyRestaurantReviews,
+  replyToReview,
+  describeItem,
   getMyOrders,
   updateOrderStatus,
   getFinance,
@@ -43,6 +44,10 @@ router.route('/products/:id/status')
 
 router.route('/reviews')
   .get(catchAsync(getMyRestaurantReviews))
+
+router.patch('/reviews/:id/reply', catchAsync(replyToReview))
+
+router.post('/ai/describe', aiLimiter, catchAsync(describeItem))
 
 router.route('/orders')
   .get(catchAsync(getMyOrders))
